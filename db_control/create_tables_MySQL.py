@@ -84,3 +84,8 @@ def add_test_data():
 # この行を追加
 if __name__ == "__main__":
     add_test_data()  # テストデータの追加を実行
+    
+# ChatGPTのお勧めで追加（20250323）★エラー対策: ImportError: cannot import name 'init_db' from 'db_control.create_tables' (C:\Users\yasut\step3-2\top0techback\db_control\create_tables.py)
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    print("✓ データベース初期化完了（テーブル作成）")

@@ -5,11 +5,11 @@ import requests
 import json
 # from db_control import crud, mymodels
 from db_control import crud, mymodels
-# MySQLのテーブル作成
-# from db_control.create_tables import init_db
+# MySQLのテーブル作成　★コメントアウトされていたので外した（20250323）
+from db_control.create_tables_MySQL import init_db #★db_control.create_tables_MySQLに変更
 
-# # アプリケーション初期化時にテーブルを作成
-# init_db()
+# # アプリケーション初期化時にテーブルを作成　★コメントアウトされていたので外した（20250323）
+init_db()
 
 
 class Customer(BaseModel):

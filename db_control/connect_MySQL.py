@@ -3,10 +3,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 環境変数の読み込み
+# 環境変数の読み込み　★env_path load_dotenvがコメントアウトされていたので外した（20250323）
 base_path = Path(__file__).parents[1]  # backendディレクトリへのパス
-# env_path = base_path / '.env'
-# load_dotenv(dotenv_path=env_path)
+env_path = base_path / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # データベース接続情報
 DB_USER = os.getenv('DB_USER')

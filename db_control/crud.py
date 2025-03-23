@@ -10,7 +10,7 @@ import json
 import pandas as pd
 
 from db_control.connect_MySQL import engine
-from db_control.mymodels import Customers
+from db_control.mymodels_MySQL import Customers #★mymodelsをmymodels_MySQLに変更（250323）
 
 
 def myinsert(mymodel, values):
