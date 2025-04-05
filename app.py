@@ -1,91 +1,53 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
-import json
-# from db_control import crud, mymodels
-from db_control import crud, mymodels
-# MySQLのテーブル作成　★コメントアウトされていたので外した（20250323）
-from db_control.create_tables_MySQL import init_db #★db_control.create_tables_MySQLに変更
-
-# # アプリケーション初期化時にテーブルを作成　★コメントアウトされていたので外した（20250323）
-init_db()
-
-
-class Customer(BaseModel):
-    customer_id: str
-    customer_name: str
-    age: int
-    gender: str
-
+from db_connection.connect_Chroma import list_collection_items
+from db_crud.search import search_router
 
 app = FastAPI()
 
-# CORSミドルウェアの設定
+# CORSミドルウェア設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # 本番環境では特定のオリジンに制限する
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ルーター登録
+app.include_router(search_router)
+
 @app.get("/")
-def index():
-    return {"message": "FastAPI top page!"}
+def read_root():
+    return {"message": "Welcome to Chotto API"}
 
-
-@app.post("/customers")
-def create_customer(customer: Customer):
-    values = customer.dict()
-    tmp = crud.myinsert(mymodels.Customers, values)
-    result = crud.myselect(mymodels.Customers, values.get("customer_id"))
-
-    if result:
-        result_obj = json.loads(result)
-        return result_obj if result_obj else None
-    return None
-
-
-@app.get("/customers")
-def read_one_customer(customer_id: str = Query(...)):
-    result = crud.myselect(mymodels.Customers, customer_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    result_obj = json.loads(result)
-    return result_obj[0] if result_obj else None
-
-@app.get("/allcustomers")
-def read_all_customer():
-    result = crud.myselectAll(mymodels.Customers)
-    # 結果がNoneの場合は空配列を返す
-    if not result:
-        return []
-    # JSON文字列をPythonオブジェクトに変換
-    return json.loads(result)
-
-
-@app.put("/customers")
-def update_customer(customer: Customer):
-    values = customer.dict()
-    values_original = values.copy()
-    tmp = crud.myupdate(mymodels.Customers, values)
-    result = crud.myselect(mymodels.Customers, values_original.get("customer_id"))
-    if not result:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    result_obj = json.loads(result)
-    return result_obj[0] if result_obj else None
-
-
-@app.delete("/customers")
-def delete_customer(customer_id: str = Query(...)):
-    result = crud.mydelete(mymodels.Customers, customer_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    return {"customer_id": customer_id, "status": "deleted"}
-
-
-@app.get("/fetchtest")
-def fetchtest():
-    response = requests.get('https://jsonplaceholder.typicode.com/users')
-    return response.json()
+# ChromaDBの状態を確認する
+@app.get("/chroma/status")
+def chroma_status():
+    """ChromaDBの状態を確認する"""
+    try:
+        # スキルコレクションのデータを取得
+        skills_data = list_collection_items(collection_name="skills")
+        skills_count = len(skills_data["ids"]) if skills_data else 0
+        
+        # プロフィールコレクションのデータを取得
+        profiles_data = list_collection_items(collection_name="profiles")
+        profiles_count = len(profiles_data["ids"]) if profiles_data else 0
+        
+        return {
+            "status": "ok",
+            "collections": {
+                "skills": {
+                    "count": skills_count,
+                    "sample": skills_data["ids"][:5] if skills_count > 0 else []
+                },
+                "profiles": {
+                    "count": profiles_count,
+                    "sample": profiles_data["ids"][:5] if profiles_count > 0 else []
+                }
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"ChromaDB状態確認エラー: {str(e)}")
