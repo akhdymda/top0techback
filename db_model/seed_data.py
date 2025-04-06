@@ -350,38 +350,68 @@ def seed_data():
             User(name="佐藤花子", email="sato@example.com", password_hash=hash_password("password133")),
             User(name="鈴木一郎", email="suzuki@example.com", password_hash=hash_password("password223")),
             User(name="高橋次郎", email="takahashi@example.com", password_hash=hash_password("password323")),
-            User(name="田中三郎", email="tanaka@example.com", password_hash=hash_password("password423"))
+            User(name="田中三郎", email="tanaka@example.com", password_hash=hash_password("password423")),
+            User(name="佐藤健", email="sato@example.com", password_hash=hash_password("password123")),
+            User(name="鈴木大輔", email="suzuki@example.com", password_hash=hash_password("password123")),
+            User(name="高橋翔太", email="takahashi@example.com", password_hash=hash_password("password123")),
+            User(name="田中優子", email="tanaka@example.com", password_hash=hash_password("password123")),
+            User(name="伊藤真理", email="ito@example.com", password_hash=hash_password("password123")),
+            User(name="渡辺直人", email="watanabe@example.com", password_hash=hash_password("password123")),
+            User(name="山本彩", email="yamamoto@example.com", password_hash=hash_password("password123")),
+            User(name="中村光", email="nakamura@example.com", password_hash=hash_password("password123")),
+            User(name="小林誠", email="kobayashi@example.com", password_hash=hash_password("password123")),
+            User(name="加藤愛", email="kato@example.com", password_hash=hash_password("password123")),
+            User(name="吉田和也", email="yoshida@example.com", password_hash=hash_password("password123")),
+            User(name="山田花子", email="hanako@example.com", password_hash=hash_password("password123")),
+            User(name="佐々木亮", email="ryo@example.com", password_hash=hash_password("password123")),
+            User(name="山口萌", email="moe@example.com", password_hash=hash_password("password123")),
+            User(name="松本健一", email="kenichi@example.com", password_hash=hash_password("password123")),
+            User(name="井上美咲", email="misaki@example.com", password_hash=hash_password("password123")),
+            User(name="木村拓哉", email="takuya@example.com", password_hash=hash_password("password123")),
+            User(name="林美優", email="miyu@example.com", password_hash=hash_password("password123")),
+            User(name="斎藤学", email="manabu@example.com", password_hash=hash_password("password123")),
+            User(name="清水彩", email="aya@example.com", password_hash=hash_password("password123")),
+            User(name="森田涼介", email="ryosuke@example.com", password_hash=hash_password("password123")),
+            User(name="藤井直美", email="naomi@example.com", password_hash=hash_password("password123")),
+            User(name="岡田真一", email="shinichi@example.com", password_hash=hash_password("password123")),
+            User(name="中島美香", email="mika@example.com", password_hash=hash_password("password123")),
+            User(name="石井陽子", email="yoko@example.com", password_hash=hash_password("password123"))
         ]
         db.add_all(users)
         db.commit()
         
         # プロフィールデータ
         profiles = [
-            Profile(
-                user_id=1, department_id=1, join_form_id=1, welcome_level_id=1,
-                career=5, history="2018年入社", pr="Pythonが得意です",
-                total_point=25
-            ),
-            Profile(
-                user_id=2, department_id=2, join_form_id=2, welcome_level_id=2,
-                career=3, history="2020年入社", pr="営業経験豊富です",
-                total_point=15
-            ),
-            Profile(
-                user_id=3, department_id=3, join_form_id=1, welcome_level_id=3,
-                career=7, history="2016年入社", pr="人材採用を担当",
-                total_point=30
-            ),
-            Profile(
-                user_id=4, department_id=4, join_form_id=3, welcome_level_id=3,
-                career=2, history="2021年入社", pr="会計資格保持",
-                total_point=10
-            ),
-            Profile(
-                user_id=5, department_id=5, join_form_id=1, welcome_level_id=1,
-                career=4, history="2019年入社", pr="プロジェクト企画が得意",
-                total_point=20
-            )
+            Profile(user_id=1, department_id=1, join_form_id=1, welcome_level_id=1, career=5, history="2018年入社", pr="Pythonが得意です", total_point=25),
+            Profile(user_id=2, department_id=2, join_form_id=2, welcome_level_id=2, career=3, history="2020年入社", pr="営業経験豊富です", total_point=15 ),
+            Profile(user_id=3, department_id=3, join_form_id=1, welcome_level_id=3, career=7, history="2016年入社", pr="人材採用を担当", total_point=30 ),
+            Profile(user_id=4, department_id=4, join_form_id=3, welcome_level_id=3, career=2, history="2021年入社", pr="会計資格保持", total_point=10 ),
+            Profile(user_id=5, department_id=5, join_form_id=1, welcome_level_id=1, career=4, history="2019年入社", pr="プロジェクト企画が得意", total_point=20 ),
+            Profile(user_id=6, department_id=6, join_form_id=2, welcome_level_id=1, career=6, history="2017年入社", pr="デザインが得意です", total_point=18 ),
+            Profile(user_id=7, department_id=7, join_form_id=3, welcome_level_id=2, career=4, history="2019年入社", pr="プロジェクトマネジメント経験豊富", total_point=22 ),
+            Profile(user_id=8, department_id=8, join_form_id=1, welcome_level_id=3, career=5, history="2018年入社", pr="データ分析が専門です",  total_point=19 ),
+            Profile(user_id=9, department_id=9, join_form_id=2, welcome_level_id=1, career=3, history="2020年入社", pr="マーケティング戦略立案が得意", total_point=17 ),
+            Profile(user_id=10, department_id=10, join_form_id=3, welcome_level_id=2, career=7, history="2016年入社", pr="システム開発の経験があります", total_point=25),
+            Profile(user_id=11, department_id=1, join_form_id=1, welcome_level_id=1, career=2, history="2021年入社", pr="SNS運用が得意です", total_point=12),
+            Profile(user_id=12, department_id=2, join_form_id=2, welcome_level_id=3, career=8, history="2015年入社", pr="営業マネジメント経験があります", total_point=30),
+            Profile(user_id=13, department_id=3, join_form_id=3, welcome_level_id=2, career=6, history="2017年入社", pr="コンテンツ制作が専門です", total_point=20),
+            Profile(user_id=14, department_id=4, join_form_id=1, welcome_level_id=1, career=4, history="2019年入社", pr="広告運用のスペシャリストです", total_point=18),
+            Profile(user_id=15, department_id=5, join_form_id=2, welcome_level_id=3, career=5, history="2018年入社", pr="SEO対策が得意です", total_point=22),
+            Profile(user_id=16, department_id=6, join_form_id=3, welcome_level_id=2, career=3, history="2020年入社", pr="動画編集の経験があります", total_point=15),
+            Profile(user_id=17, department_id=7, join_form_id=1, welcome_level_id=1, career=7, history="2016年入社", pr="ブランディング戦略が専門です", total_point=28),
+            Profile(user_id=18, department_id=8, join_form_id=2, welcome_level_id=3, career=4, history="2019年入社", pr="イベント企画が得意です", total_point=19),
+            Profile(user_id=19, department_id=9, join_form_id=3, welcome_level_id=2, career=5, history="2018年入社", pr="PR活動の経験があります", total_point=21),
+            Profile(user_id=20, department_id=10, join_form_id=1, welcome_level_id=1, career=6, history="2017年入社", pr="市場調査が専門です", total_point=23),
+            Profile(user_id=21, department_id=1, join_form_id=2, welcome_level_id=2, career=5, history="2018年入社", pr="メールマーケティングが得意", total_point=19),
+            Profile(user_id=22, department_id=2, join_form_id=3, welcome_level_id=1, career=6, history="2017年入社", pr="UXリサーチ経験あり", total_point=24),
+            Profile(user_id=23, department_id=3, join_form_id=1, welcome_level_id=3, career=2, history="2021年入社", pr="AI導入プロジェクトを担当", total_point=16),
+            Profile(user_id=24, department_id=4, join_form_id=2, welcome_level_id=1, career=7, history="2016年入社", pr="統計解析が得意", total_point=27),
+            Profile(user_id=25, department_id=5, join_form_id=3, welcome_level_id=2, career=3, history="2020年入社", pr="SEOコンテンツの制作実績多数", total_point=18),
+            Profile(user_id=26, department_id=6, join_form_id=1, welcome_level_id=2, career=4, history="2019年入社", pr="D2Cブランドの立ち上げ経験あり", total_point=22),
+            Profile(user_id=27, department_id=7, join_form_id=2, welcome_level_id=3, career=5, history="2018年入社", pr="インフルエンサーマーケ経験あり", total_point=20),
+            Profile(user_id=28, department_id=8, join_form_id=3, welcome_level_id=1, career=6, history="2017年入社", pr="Pythonでのデータ分析が得意", total_point=26),
+            Profile(user_id=29, department_id=9, join_form_id=1, welcome_level_id=2, career=2, history="2021年入社", pr="コンテンツ企画に自信あり", total_point=14),
+            Profile(user_id=30, department_id=10, join_form_id=2, welcome_level_id=3, career=7, history="2016年入社", pr="広告クリエイティブの設計者", total_point=30),
         ]
         db.add_all(profiles)
         db.commit()
@@ -415,6 +445,107 @@ def seed_data():
             PostSkill(user_id=5, skill_id=5),
             PostSkill(user_id=5, skill_id=8),
             PostSkill(user_id=5, skill_id=9),
+
+            # user 6
+            PostSkill(user_id=6, skill_id=1),
+            PostSkill(user_id=6, skill_id=2),
+            PostSkill(user_id=6, skill_id=3),
+            # user 7
+            PostSkill(user_id=7, skill_id=2),
+            PostSkill(user_id=7, skill_id=3),
+            PostSkill(user_id=7, skill_id=4),
+            # user 8
+            PostSkill(user_id=8, skill_id=3),
+            PostSkill(user_id=8, skill_id=4),
+            PostSkill(user_id=8, skill_id=5),
+            # user 9
+            PostSkill(user_id=9, skill_id=4),
+            PostSkill(user_id=9, skill_id=5),
+            PostSkill(user_id=9, skill_id=6),
+            # user 10
+            PostSkill(user_id=10, skill_id=5),
+            PostSkill(user_id=10, skill_id=6),
+            PostSkill(user_id=10, skill_id=7),
+            # user 11
+            PostSkill(user_id=11, skill_id=6),
+            PostSkill(user_id=11, skill_id=7),
+            PostSkill(user_id=11, skill_id=8),
+            # user 12
+            PostSkill(user_id=12, skill_id=7),
+            PostSkill(user_id=12, skill_id=8),
+            PostSkill(user_id=12, skill_id=9),
+            # user 13
+            PostSkill(user_id=13, skill_id=8),
+            PostSkill(user_id=13, skill_id=9),
+            PostSkill(user_id=13, skill_id=10),
+            # user 14
+            PostSkill(user_id=14, skill_id=9),
+            PostSkill(user_id=14, skill_id=10),
+            PostSkill(user_id=14, skill_id=11),
+            # user 15
+            PostSkill(user_id=15, skill_id=10),
+            PostSkill(user_id=15, skill_id=11),
+            PostSkill(user_id=15, skill_id=1),
+            # user 16
+            PostSkill(user_id=16, skill_id=11),
+            PostSkill(user_id=16, skill_id=1),
+            PostSkill(user_id=16, skill_id=2),
+            # user 17
+            PostSkill(user_id=17, skill_id=1),
+            PostSkill(user_id=17, skill_id=2),
+            PostSkill(user_id=17, skill_id=3),
+            # user 18
+            PostSkill(user_id=18, skill_id=2),
+            PostSkill(user_id=18, skill_id=3),
+            PostSkill(user_id=18, skill_id=4),
+            # user 19
+            PostSkill(user_id=19, skill_id=3),
+            PostSkill(user_id=19, skill_id=4),
+            PostSkill(user_id=19, skill_id=5),
+            # user 20
+            PostSkill(user_id=20, skill_id=4),
+            PostSkill(user_id=20, skill_id=5),
+            PostSkill(user_id=20, skill_id=6),
+            # user 21
+            PostSkill(user_id=21, skill_id=5),
+            PostSkill(user_id=21, skill_id=6),
+            PostSkill(user_id=21, skill_id=7),
+            # user 22
+            PostSkill(user_id=22, skill_id=6),
+            PostSkill(user_id=22, skill_id=7),
+            PostSkill(user_id=22, skill_id=8),
+            # user 23
+            PostSkill(user_id=23, skill_id=7),
+            PostSkill(user_id=23, skill_id=8),
+            PostSkill(user_id=23, skill_id=9),
+            # user 24
+            PostSkill(user_id=24, skill_id=8),
+            PostSkill(user_id=24, skill_id=9),
+            PostSkill(user_id=24, skill_id=10),
+            # user 25
+            PostSkill(user_id=25, skill_id=9),
+            PostSkill(user_id=25, skill_id=10),
+            PostSkill(user_id=25, skill_id=11),
+            # user 26
+            PostSkill(user_id=26, skill_id=10),
+            PostSkill(user_id=26, skill_id=11),
+            PostSkill(user_id=26, skill_id=1),
+            # user 27
+            PostSkill(user_id=27, skill_id=11),
+            PostSkill(user_id=27, skill_id=1),
+            PostSkill(user_id=27, skill_id=2),
+            # user 28
+            PostSkill(user_id=28, skill_id=1),
+            PostSkill(user_id=28, skill_id=2),
+            PostSkill(user_id=28, skill_id=3),
+            # user 29
+            PostSkill(user_id=29, skill_id=2),
+            PostSkill(user_id=29, skill_id=3),
+            PostSkill(user_id=29, skill_id=4),
+            # user 30
+            PostSkill(user_id=30, skill_id=3),
+            PostSkill(user_id=30, skill_id=4),
+            PostSkill(user_id=30, skill_id=5)
         ]
         db.add_all(post_skills)
         db.commit()
