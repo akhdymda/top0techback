@@ -5,7 +5,7 @@ from datetime import datetime, date
 # ユーザー関連スキーマ
 class UserBase(BaseModel):
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: EmailStr
 
 class UserCreate(UserBase):
     password: str
