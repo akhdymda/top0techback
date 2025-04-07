@@ -17,4 +17,4 @@ passlib==1.7.4
 bcrypt==4.2.1
 python-jose==3.3.0
 # SQLite3の問題を解決するためのパッケージ
-pysqlite3-binary==0.5.1
+pysqlite3-binary==0.5.4
