@@ -6,30 +6,66 @@ import importlib
 def patch_sqlite3():
     """SQLite3をpysqlite3で置き換える"""
     try:
+        # バージョン情報とパスを表示
         print(f"Python version: {sys.version}")
         print(f"Current working directory: {os.getcwd()}")
         
-        # 既存のsqlite3モジュールを削除
+        # システムのsqlite3バージョンを確認
+        try:
+            import sqlite3 as system_sqlite3
+            print(f"System SQLite3 version: {system_sqlite3.sqlite_version}")
+        except Exception as e:
+            print(f"Failed to check system SQLite3 version: {e}")
+        
+        # まず既存のsqlite3モジュールを確認して削除
         if 'sqlite3' in sys.modules:
+            print("Removing existing sqlite3 module from sys.modules")
             del sys.modules['sqlite3']
         
-        # pysqlite3をインポート
-        import pysqlite3
-        # モジュールパッチ
-        sys.modules['sqlite3'] = pysqlite3
-        print("Successfully patched sqlite3 with pysqlite3")
+        # 利用可能なパスを確認
+        print(f"Python path: {sys.path}")
         
-        # パッチが成功したことを確認
-        import sqlite3
-        print(f"SQLite3 version after patch: {sqlite3.sqlite_version}")
-        return True
+        # pysqlite3が存在するか確認
+        try:
+            import pysqlite3
+            print(f"Found pysqlite3 version: {pysqlite3.sqlite_version}")
+            
+            # モジュールパッチの適用
+            sys.modules['sqlite3'] = pysqlite3
+            print("Successfully patched sqlite3 with pysqlite3")
+            
+            # パッチが成功したことを確認
+            import sqlite3
+            print(f"SQLite3 version after patch: {sqlite3.sqlite_version}")
+            if sqlite3 is pysqlite3:
+                print("Patch verification: sqlite3 is now pysqlite3")
+            return True
+        except ImportError as e:
+            print(f"pysqlite3 import error: {e}")
+            # pip経由でインストールを試みる
+            try:
+                import subprocess
+                print("Attempting to install pysqlite3-binary...")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary==0.5.0"])
+                print("pysqlite3-binary installed, retrying patch...")
+                
+                # 再度インポートを試みる
+                import pysqlite3
+                sys.modules['sqlite3'] = pysqlite3
+                import sqlite3
+                print(f"SQLite3 version after install and patch: {sqlite3.sqlite_version}")
+                return True
+            except Exception as install_err:
+                print(f"Failed to install pysqlite3: {install_err}")
+                return False
+    
     except Exception as e:
-        print(f"Failed to patch sqlite3: {str(e)}")
+        print(f"Patch process error: {str(e)}")
         return False
 
 # パッチを実行
 if not patch_sqlite3():
-    print("Warning: SQLite3 patch failed, using system sqlite3")
+    print("Warning: SQLite3 patch failed. Application may not function correctly with ChromaDB.")
 
 # 環境変数のパスを設定
 if "LD_LIBRARY_PATH" in os.environ:

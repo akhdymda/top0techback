@@ -1,19 +1,28 @@
-# SQLite3の設定
+# 環境設定
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
 export PYTHONPATH="$PYTHONPATH:/home/site/wwwroot"
 export PIP_NO_BUILD_ISOLATION=false
 export PIP_USE_PEP517=true
 
-# 必要なパッケージのインストール
-python -m pip install --upgrade pip
-python -m pip install --no-cache-dir setuptools==67.8.0 wheel==0.41.2 pip==23.2.1
-python -m pip install --no-cache-dir --force-reinstall pysqlite3-binary
-python -m pip install --no-cache-dir pydantic-settings==2.2.1
-echo "Installed required packages"
+# システムの確認とデバッグ情報
+echo "Python version:"
+python --version
+echo "Current directory:"
+pwd
+echo "File listing:"
+ls -la
+
+# 依存関係のインストール
+echo "Installing dependencies..."
+python -m pip install --upgrade pip==23.1.2
+python -m pip install setuptools==67.8.0 wheel==0.40.0 --no-cache-dir
+python -m pip install -r requirements.txt --no-build-isolation --no-cache-dir
+echo "Dependencies installed successfully"
 
 # ChromaDBの初期化
 echo "Initializing ChromaDB..."
 python init_chroma.py
 
 # アプリの起動
+echo "Starting FastAPI application..."
 python -m uvicorn app:app --host 0.0.0.0
