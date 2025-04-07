@@ -1,6 +1,7 @@
 # SQLite3の設定
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
 python -m pip install --upgrade pip
+python -m pip install --no-cache-dir setuptools==69.0.2 wheel==0.41.2
 python -m pip install --no-cache-dir --force-reinstall pysqlite3-binary
 python -m pip install --no-cache-dir pydantic-settings==2.2.1
 echo "Installed required packages"
