@@ -1,7 +1,12 @@
 # SQLite3の設定
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
+export PYTHONPATH="$PYTHONPATH:/home/site/wwwroot"
+export PIP_NO_BUILD_ISOLATION=false
+export PIP_USE_PEP517=true
+
+# 必要なパッケージのインストール
 python -m pip install --upgrade pip
-python -m pip install --no-cache-dir setuptools==69.0.2 wheel==0.41.2
+python -m pip install --no-cache-dir setuptools==67.8.0 wheel==0.41.2 pip==23.2.1
 python -m pip install --no-cache-dir --force-reinstall pysqlite3-binary
 python -m pip install --no-cache-dir pydantic-settings==2.2.1
 echo "Installed required packages"

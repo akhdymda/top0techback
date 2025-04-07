@@ -1,25 +1,25 @@
-fastapi==0.109.2
-uvicorn==0.27.1
-SQLAlchemy==2.0.27
-pydantic==2.10.4
-python-dotenv==1.0.1
-requests==2.32.3
+fastapi==0.103.2
+uvicorn==0.23.2
+SQLAlchemy==2.0.23
+pydantic==2.4.2
+python-dotenv==1.0.0
+requests==2.31.0
 pandas==1.5.3
 numpy==1.24.3
-python-dateutil==2.9.0
-PyMySQL==1.1.1
-mysqlclient==2.2.4
+python-dateutil==2.8.2
+PyMySQL==1.1.0
+mysqlclient==2.2.0
 # 古いバージョンに変更 (SQLite3の要件が低いバージョン)
-chromadb==0.4.22
-openai==1.12.0
-python-multipart==0.0.20
+chromadb==0.4.13
+openai==1.1.1
+python-multipart==0.0.6
 passlib==1.7.4
-bcrypt==4.2.1
+bcrypt==4.0.1
 python-jose==3.3.0
 # SQLite3の問題を解決するためのパッケージ
-pysqlite3-binary==0.5.4
+pysqlite3-binary==0.5.0
 # Pydantic設定用パッケージ
-pydantic-settings==2.2.1
+pydantic-settings==2.0.3
 # ビルド依存関係
-setuptools==69.0.2
+setuptools==67.8.0
 wheel==0.41.2
