@@ -1,1 +1,3 @@
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
+python -m pip install pysqlite3-binary
 python -m uvicorn app:app --host 0.0.0.0
