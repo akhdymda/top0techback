@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from db_connection.connect_Chroma import list_collection_items
-from db_crud.search import search_router
+from db_connection.connect_Chroma import list_collection_items, search_similar
 from pydantic import BaseModel
 from typing import List
-from db_connection.connect_MySQL import SessionLocal
+from db_connection.connect_MySQL import SessionLocal, get_db
 from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, Session
+from db_model.schemas import SkillResponse, SearchResponse, UserResponse, SearchResult, DepartmentResponse
+from db_connection.embedding import get_text_embedding
 
 app = FastAPI()
 
@@ -18,163 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# DBセッション用のDependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# @app.get("/search")
-# def search_users(q: str = Query(..., min_length=1)):
-#     # 例: 名前やスキルの一部に q が含まれるデータを返す
-#     all_users = crud.myselectAll(mymodels.Customers)
-
-#     if not all_users:
-#         return []
-
-#     all_users_obj = json.loads(all_users)
-
-#     # 検索語が名前またはdescriptionに含まれるユーザーをフィルタ
-#     matched_users = [
-#         user for user in all_users_obj
-#         if q.lower() in user.get("customer_name", "").lower()
-#         or q.lower() in user.get("description", "").lower()
-#     ]
-
-#     return matched_users
-
-
-
-# @app.get("/")
-# def index():
-#     return {"message": "FastAPI top page!"}
-
-
-
-
-# @app.post("/customers")
-# def create_customer(customer: Customer):
-#     values = customer.dict()
-#     tmp = crud.myinsert(mymodels.Customers, values)
-#     result = crud.myselect(mymodels.Customers, values.get("customer_id"))
-
-#     if result:
-#         result_obj = json.loads(result)
-#         return result_obj if result_obj else None
-#     return None
-
-
-# @app.get("/customers")
-# def read_one_customer(customer_id: str = Query(...)):
-#     result = crud.myselect(mymodels.Customers, customer_id)
-#     if not result:
-#         raise HTTPException(status_code=404, detail="Customer not found")
-#     result_obj = json.loads(result)
-#     return result_obj[0] if result_obj else None
-
-# @app.get("/allcustomers")
-# def read_all_customer():
-#     result = crud.myselectAll(mymodels.Customers)
-#     # 結果がNoneの場合は空配列を返す
-#     if not result:
-#         return []
-#     # JSON文字列をPythonオブジェクトに変換
-#     return json.loads(result)
-
-
-# @app.put("/customers")
-# def update_customer(customer: Customer):
-#     values = customer.dict()
-#     values_original = values.copy()
-#     tmp = crud.myupdate(mymodels.Customers, values)
-#     result = crud.myselect(mymodels.Customers, values_original.get("customer_id"))
-#     if not result:
-#         raise HTTPException(status_code=404, detail="Customer not found")
-#     result_obj = json.loads(result)
-#     return result_obj[0] if result_obj else None
-
-
-# @app.delete("/customers")
-# def delete_customer(customer_id: str = Query(...)):
-#     result = crud.mydelete(mymodels.Customers, customer_id)
-#     if not result:
-#         raise HTTPException(status_code=404, detail="Customer not found")
-#     return {"customer_id": customer_id, "status": "deleted"}
-
-
-# @app.get("/fetchtest")
-# def fetchtest():
-#     response = requests.get('https://jsonplaceholder.typicode.com/users')
-#     return response.json()
-
-#仮ユーザーDB
-# class User(BaseModel):
-#     id: int
-#     name: str
-#     department: str
-#     yearsOfService: int
-#     skills: List[str]
-#     description: str
-
-# def get_users_from_db() -> List[User]:
-#     return [
-#         User(
-#             id=1,
-#             name="高橋健人",
-#             department="リビング電気部",
-#             yearsOfService=13,
-#             skills=["Webマーケティング全般", "データ分析と計測", "コンテンツマーケティング", "SNSマーケティング"],
-#             description="経験豊富で技術にも強いマーケターです。"
-#         ),
-#         User(
-#             id=2,
-#             name="佐藤美咲",
-#             department="企画部",
-#             yearsOfService=8,
-#             skills=["新規事業企画", "社内プレゼン", "市場調査"],
-#             description="企画力と調整力に優れたリーダー型社員です。"
-#         ),
-#         User(
-#             id=3,
-#             name="田中陽介",
-#             department="エネルギー事業革新部",
-#             yearsOfService=5,
-#             skills=["IoT", "電力管理", "スマートホーム"],
-#             description="最新技術に強く、若手ながらも信頼される技術者です。"
-#         ),
-#         User(
-#             id=4,
-#             name="中村翔太",
-#             department="WEBソリューションプロジェクト部",
-#             yearsOfService=10,
-#             skills=["Web開発", "UI/UX設計", "SEO"],
-#             description="ユーザー視点でサービス設計を行うWeb系エンジニアです。"
-#         ),
-#     ]
-
-# APIレスポンス用のUserモデル
-class UserResponse(BaseModel):
-    id: int
-    name: str
-    department: str
-    yearsOfService: int
-    skills: List[str]
-    description: str
-    joinForm: str  # 入社形態を追加
-
-    class Config:
-        from_attributes = True
-
-# APIレスポンス用のスキルモデル
-class SkillResponse(BaseModel):
-    name: str
-    users: List[UserResponse] = []
-
-    class Config:
-        from_attributes = True
 
 # スキル検索API
 @app.get("/skills/{skill_name}", response_model=SkillResponse)
@@ -294,79 +138,145 @@ def read_skills():
     finally:
         db.close()
 
-# #仮部署DB
-# class Department(BaseModel):
-#     name: str
-#     users: List[User] = []  # ユーザー情報を含めるように修正
-
-# def get_departments_from_db() -> List[Department]:
-#     all_users = get_users_from_db()
-#     departments = [
-#         Department(name="企画部"),
-#         Department(name="設備ソリューション事業部"),
-#         Department(name="リビング相談部"),
-#         Department(name="総合設備事業部"),
-#         Department(name="リビング営業部"),
-#         Department(name="BTMソリューションプロジェクト部"),
-#         Department(name="エネルギー事業革新部"),
-#         Department(name="WEBソリューションプロジェクト部"),
-#         Department(name="リビング業務改革部"),
-#         Department(name="ソリューション共創本部"),
-#     ]
-    
-#     # 各部署に所属するユーザーを設定
-#     for dept in departments:
-#         dept.users = [user for user in all_users if user.department == dept.name]
-    
-#     return departments
-
 
 #ふわっと検索API
-@app.get("/search", response_model=List[UserResponse])
-def search_users(q: str = Query(..., min_length=1)):
-    print(f"🔍 受け取ったクエリ: {q}", flush=True)
+@app.get("/search", response_model=SearchResponse)
+async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)):
+    """
+    ふわっと検索（ベクトル検索）でユーザーを検索
+    """
+    print(f"検索クエリ: {query}, 取得件数上限: {limit}")
     
-    db = SessionLocal()
     try:
-        # ユーザーを検索（名前で部分一致）
-        users = (
-            db.query(DBUser)
-            .join(Profile)
-            .options(joinedload(DBUser.posted_skills).joinedload(PostSkill.skill))
-            .filter(DBUser.name.ilike(f"%{q}%"))
-            .all()
-        )
+        # テキストからエンベディングを生成
+        embedding = get_text_embedding(query)
+        print(f"エンベディング生成完了。次元数: {len(embedding)}")
+
+        # ChromaDBで類似検索を実行
+        results = search_similar(embedding, limit=limit)
+        print(f"ChromaDB検索結果: {results}")
+
+        # 検索結果がない場合
+        if not results or not results.get("ids") or len(results["ids"][0]) == 0:
+            print("検索結果なし")
+            return SearchResponse(results=[], total=0)
         
-        # レスポンス用のユーザーリストを作成
-        user_responses = []
-        for user in users:
-            user_skills = [ps.skill.name for ps in user.posted_skills]
-            profile = user.profile
+        print(f"検索結果の件数: {len(results['ids'][0])}")
+        
+        # 結果をフォーマット
+        search_results = []
+        for i, id_str in enumerate(results["ids"][0]):
+            print(f"処理中のID: {id_str}")
             
-            user_responses.append(
-                UserResponse(
-                    id=user.id,
-                    name=user.name,
-                    department=profile.department.name if profile and profile.department else "",
-                    yearsOfService=profile.career if profile else 0,
-                    skills=user_skills,
-                    description=profile.pr if profile else "",
-                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定"  # 入社形態を追加
-                )
-            )
-        
-        return user_responses
-    
-    finally:
-        db.close()
+            # IDの形式を確認
+            if id_str.startswith("skill_"):
+                # skill_1 形式の場合は数字部分を抽出
+                try:
+                    skill_id = int(id_str.split("_")[1])
+                    print(f"スキルIDに変換: {skill_id}")
+                    
+                    # スキルマスターからスキル情報を取得
+                    skill = db.query(SkillMaster).filter(SkillMaster.skill_id == skill_id).first()
+                    if not skill:
+                        print(f"スキルID {skill_id} が見つかりません")
+                        continue
+                        
+                    # スキルに関連付けられたポストスキルを全て取得
+                    post_skills = db.query(PostSkill).filter(PostSkill.skill_id == skill_id).all()
+                    if not post_skills:
+                        print(f"スキルID {skill_id} に関連するポストスキルが見つかりません")
+                        continue
+                        
+                    # 各ポストスキルからユーザー情報を取得して結果に追加
+                    for post_skill in post_skills:
+                        user = db.query(DBUser).filter(DBUser.id == post_skill.user_id).first()
+                        if not user:
+                            print(f"ユーザーID {post_skill.user_id} が見つかりません")
+                            continue
+                            
+                        # 部署情報を取得
+                        department_id = None
+                        department_name = None
+                        if user.profile and user.profile.department_id:
+                            department = db.query(DBDepartment).filter(DBDepartment.id == user.profile.department_id).first()
+                            if department:
+                                department_id = department.id
+                                department_name = department.name
+                        
+                        # 検索結果を作成
+                        search_result = SearchResult(
+                            user_id=user.id,
+                            user_name=user.name or "名前なし",
+                            skill_id=skill.skill_id,
+                            skill_name=skill.name,
+                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+                            department_id=department_id,
+                            department_name=department_name,
+                            similarity_score=results["distances"][0][i] if "distances" in results else 0.0
+                        )
+                        search_results.append(search_result)
+                except Exception as e:
+                    print(f"スキルID '{id_str}' の処理中にエラー: {str(e)}")
+                    continue
+            else:
+                # 通常の数値IDとして処理を試みる
+                try:
+                    skill_id_int = int(id_str)
+                    print(f"ポストスキルIDとして処理: {skill_id_int}")
+                    
+                    # データベースから投稿スキル情報を取得
+                    post_skill = db.query(PostSkill).filter(PostSkill.id == skill_id_int).first()
+                    if post_skill:
+                        print(f"ポストスキル: user_id={post_skill.user_id}, skill_id={post_skill.skill_id}")
+                        
+                        # ユーザー情報を取得
+                        user = db.query(DBUser).filter(DBUser.id == post_skill.user_id).first()
+                        if not user:
+                            print(f"ユーザーID {post_skill.user_id} が見つかりません")
+                            continue
 
-# APIレスポンス用の部署モデル
-class DepartmentResponse(BaseModel):
-    name: str
-    users: List[UserResponse] = []
+                        # スキル情報を取得
+                        skill = db.query(SkillMaster).filter(SkillMaster.skill_id == post_skill.skill_id).first()
+                        if not skill:
+                            print(f"スキルID {post_skill.skill_id} が見つかりません")
+                            continue
 
-    class Config:
-        from_attributes = True
+                        # 部署情報を取得
+                        department_id = None
+                        department_name = None
+                        if user.profile and user.profile.department_id:
+                            department = db.query(DBDepartment).filter(DBDepartment.id == user.profile.department_id).first()
+                            if department:
+                                department_id = department.id
+                                department_name = department.name
+                        
+                        # 検索結果を作成
+                        search_result = SearchResult(
+                            user_id=user.id,
+                            user_name=user.name or "名前なし",
+                            skill_id=skill.skill_id,
+                            skill_name=skill.name,
+                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+                            department_id=department_id,
+                            department_name=department_name,
+                            similarity_score=results["distances"][0][i] if "distances" in results else 0.0
+                        )
+                        search_results.append(search_result)
+                    else:
+                        print(f"ID {id_str} に対応するポストスキルが見つかりません")
+                except Exception as e:
+                    print(f"ID '{id_str}' の処理中にエラー: {str(e)}")
+                    continue
+                
+        print(f"整形後の検索結果: {len(search_results)}件")
+        return SearchResponse(
+            results = search_results,
+            total = len(search_results))
+    except Exception as e:
+        print(f"検索処理中にエラーが発生: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"検索エラー: {str(e)}")
 
 #部署検索API
 @app.get("/departments/{department_name}", response_model=DepartmentResponse)
@@ -430,6 +340,7 @@ def read_department(department_name: str):
     finally:
         db.close()
 
+# 全部署取得API
 @app.get("/departments", response_model=List[DepartmentResponse])
 def read_departments():
     db = SessionLocal()
@@ -480,9 +391,6 @@ def read_departments():
     
     finally:
         db.close()
-
-# ルーター登録
-app.include_router(search_router)
 
 @app.get("/")
 def read_root():

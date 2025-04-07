@@ -17,7 +17,15 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    created_at: datetime
+    name: str
+    department: str
+    yearsOfService: int
+    skills: List[str]
+    description: str
+    joinForm: str  # 入社形態を追加
+    class Config:
+        from_attributes = True
+
 
     class Config:
         orm_mode = True
@@ -30,11 +38,11 @@ class DepartmentCreate(DepartmentBase):
     pass
 
 class DepartmentResponse(DepartmentBase):
-    id: int
-    created_at: datetime
+    name: str
+    users: List[UserResponse] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # 入社形態関連スキーマ
 class JoinFormBase(BaseModel):
@@ -77,6 +85,12 @@ class SkillMasterResponse(SkillMasterBase):
 
     class Config:
         orm_mode = True
+
+class SkillResponse(BaseModel):
+    name: str
+    users: List[UserResponse] = []
+    class Config:
+        from_attributes = True
 
 # 詳細スキル関連スキーマ
 class DetailSkillBase(BaseModel):
@@ -214,6 +228,7 @@ class SearchResult(BaseModel):
     user_name: str
     skill_id: Optional[int] = None
     skill_name: Optional[str] = None
+    joinForm: Optional[str] = None
     description: Optional[str] = None
     department_id: Optional[int] = None
     department_name: Optional[str] = None

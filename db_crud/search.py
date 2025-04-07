@@ -1,510 +1,253 @@
-import os
-import sys
-from datetime import datetime, date
-from pathlib import Path
-import hashlib
-import numpy as np
-import openai
-from dotenv import load_dotenv
-from sqlalchemy import text
+# from fastapi import APIRouter, Depends, HTTPException
+# from db_connection.connect_MySQL import get_db
+# from db_connection.connect_Chroma import search_similar
+# from db_connection.embedding import get_text_embedding
+# from db_model.schemas import SearchResponse, SearchResult
+# from db_model.tables import PostSkill, User, SkillMaster, Department, Profile
+# from sqlalchemy.orm import Session
 
-load_dotenv()
+# search_router = APIRouter(prefix="/search", tags=["search"])
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+# ふわっと検索（ベクトル検索）
+# @search_router.get("/fuzzy", response_model=SearchResponse)
+# async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)):
+#    """
+#    ふわっと検索（ベクトル検索）でユーザーを検索
+#    """
+#    print(f"検索クエリ: {query}, 取得件数上限: {limit}")
+    
+#    try:
+        # テキストからエンベディングを生成
+#        embedding = get_text_embedding(query)
+#        print(f"エンベディング生成完了。次元数: {len(embedding)}")
 
-# 絶対パスを取得してpythonパスに追加
-current_dir = Path(__file__).parent.absolute()  # db_modelディレクトリ
-project_root = current_dir.parent  # プロジェクトルート
-sys.path.insert(0, str(project_root))
+        # ChromaDBで類似検索を実行
+#        results = search_similar(embedding, limit=limit)
+#        print(f"ChromaDB検索結果: {results}")
 
-try:
-    from db_connection.connect_MySQL import SessionLocal, engine, Base
-    from db_model.tables import (
-        User, Department, JoinForm, WelcomeLevel, SkillMaster, 
-        DetailSkill, ContactMethod, Profile, PostSkill, 
-        PostContact, Thanks, Bookmark
-    )
-    from db_connection.connect_Chroma import add_embedding, get_chroma_client
-except ModuleNotFoundError as e:
-    print(f"モジュールのインポートエラー: {e}")
-    print(f"現在のディレクトリ: {os.getcwd()}")
-    print(f"Pythonパス: {sys.path}")
-    sys.exit(1)
+        # 検索結果がない場合
+#        if not results or not results.get("ids") or len(results["ids"][0]) == 0:
+#            print("検索結果なし")
+#            return SearchResponse(results=[], total=0)
+        
+#        print(f"検索結果の件数: {len(results['ids'][0])}")
+        
+        # 結果をフォーマット
+#        search_results = []
+#        for i, id_str in enumerate(results["ids"][0]):
+#            print(f"処理中のID: {id_str}")
+            
+            # IDの形式を確認
+#            if id_str.startswith("skill_"):
+                # skill_1 形式の場合は数字部分を抽出
+#                try:
+#                    skill_id = int(id_str.split("_")[1])
+#                    print(f"スキルIDに変換: {skill_id}")
+#                    
+                    # スキルマスターからスキル情報を取得
+#                    skill = db.query(SkillMaster).filter(SkillMaster.skill_id == skill_id).first()
+#                    if not skill:
+#                        print(f"スキルID {skill_id} が見つかりません")
+#                        continue
+                        
+                    # スキルに関連付けられたポストスキルを全て取得
+#                    post_skills = db.query(PostSkill).filter(PostSkill.skill_id == skill_id).all()
+#                    if not post_skills:
+#                        print(f"スキルID {skill_id} に関連するポストスキルが見つかりません")
+#                        continue
+                        
+                    # 各ポストスキルからユーザー情報を取得して結果に追加
+#                    for post_skill in post_skills:
+#                        user = db.query(User).filter(User.id == post_skill.user_id).first()
+#                        if not user:
+#                            print(f"ユーザーID {post_skill.user_id} が見つかりません")
+#                            continue
+                            
+                        # 部署情報を取得
+#                        department_id = None
+#                        department_name = None
+#                        if user.profile and user.profile.department_id:
+#                            department = db.query(Department).filter(Department.id == user.profile.department_id).first()
+#                            if department:
+#                                department_id = department.id
+#                                department_name = department.name
+                        
+                        # 検索結果を作成
+#                        search_result = SearchResult(
+#                            user_id=user.id,
+#                            user_name=user.name or "名前なし",
+#                            skill_id=skill.skill_id,
+#                            skill_name=skill.name,
+#                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+#                            department_id=department_id,
+#                            department_name=department_name,
+#                            similarity_score=results["distances"][0][i] if "distances" in results else 0.0
+#                        )
+#                        search_results.append(search_result)
+#                except Exception as e:
+#                    print(f"スキルID '{id_str}' の処理中にエラー: {str(e)}")
+#                    continue
+#            else:
+                # 通常の数値IDとして処理を試みる
+#                try:
+#                    skill_id_int = int(id_str)
+#                    print(f"ポストスキルIDとして処理: {skill_id_int}")
+#                    
+#                    # データベースから投稿スキル情報を取得
+#                    post_skill = db.query(PostSkill).filter(PostSkill.id == skill_id_int).first()
+#                    if post_skill:
+#                        print(f"ポストスキル: user_id={post_skill.user_id}, skill_id={post_skill.skill_id}")
+                        
+                        # ユーザー情報を取得
+#                        user = db.query(User).filter(User.id == post_skill.user_id).first()
+#                        if not user:
+#                            print(f"ユーザーID {post_skill.user_id} が見つかりません")
+#                            continue
 
-# 既存のテーブルをすべて削除して新しく作成
-def drop_and_create_tables():
-    try:
-        print("既存のテーブルを削除して新しいテーブルを作成します...")
-        # SQLAlchemyのtext関数を使ってSQLを実行
-        with engine.begin() as conn:
-            # 外部キー制約を一時的に無効化
-            conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-            
-            tables = [
-                "bookmarks", "thanks", "post_contacts", "post_skills", 
-                "profiles", "detail_skills", "contact_methods", "skill_masters", 
-                "welcome_levels", "join_forms", "departments", "users"
-            ]
-            
-            for table in tables:
-                try:
-                    conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
-                    print(f"テーブル {table} を削除しました")
-                except Exception as e:
-                    print(f"テーブル {table} の削除中にエラー: {e}")
-                    
-            # 外部キー制約を有効化
-            conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
-        
-        # SQLAlchemyのテーブル作成
-        # 新しいテーブル構造にするため、SQLを直接使用
-        with engine.begin() as conn:
-            # ユーザーテーブル
-            conn.execute(text("""
-                CREATE TABLE users (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    name VARCHAR(100), 
-                    email VARCHAR(255) NOT NULL, 
-                    password_hash VARCHAR(255) NOT NULL, 
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (id),
-                    UNIQUE (email)
-                )
-            """))
-            
-            # 部署テーブル
-            conn.execute(text("""
-                CREATE TABLE departments (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    name VARCHAR(100) NOT NULL, 
-                    PRIMARY KEY (id)
-                )
-            """))
-            
-            # 入社形態テーブル
-            conn.execute(text("""
-                CREATE TABLE join_forms (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    name VARCHAR(100) NOT NULL, 
-                    PRIMARY KEY (id)
-                )
-            """))
-            
-            # 歓迎度テーブル
-            conn.execute(text("""
-                CREATE TABLE welcome_levels (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    level_name VARCHAR(100) NOT NULL, 
-                    PRIMARY KEY (id)
-                )
-            """))
-            
-            # スキルマスタテーブル
-            conn.execute(text("""
-                CREATE TABLE skill_masters (
-                    skill_id INTEGER NOT NULL AUTO_INCREMENT, 
-                    name VARCHAR(100) NOT NULL UNIQUE, 
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (skill_id)
-                )
-            """))
-            
-            # 連絡方法テーブル
-            conn.execute(text("""
-                CREATE TABLE contact_methods (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    name VARCHAR(100) NOT NULL, 
-                    PRIMARY KEY (id)
-                )
-            """))
-            
-            # 詳細スキルテーブル
-            conn.execute(text("""
-                CREATE TABLE detail_skills (
-                    dskill_id INTEGER NOT NULL AUTO_INCREMENT, 
-                    dskill_name VARCHAR(100) NOT NULL, 
-                    skill_id INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (dskill_id), 
-                    FOREIGN KEY(skill_id) REFERENCES skill_masters(skill_id) ON DELETE CASCADE
-                )
-            """))
-            
-            # プロフィールテーブル
-            conn.execute(text("""
-                CREATE TABLE profiles (
-                    user_id INTEGER NOT NULL, 
-                    department_id INTEGER, 
-                    join_form_id INTEGER, 
-                    welcome_level_id INTEGER, 
-                    career INTEGER, 
-                    image_url VARCHAR(255), 
-                    history TEXT, 
-                    pr TEXT, 
-                    total_point INTEGER DEFAULT 0, 
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (user_id), 
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY(department_id) REFERENCES departments(id),
-                    FOREIGN KEY(join_form_id) REFERENCES join_forms(id),
-                    FOREIGN KEY(welcome_level_id) REFERENCES welcome_levels(id)
-                )
-            """))
-            
-            # ユーザースキルテーブル
-            conn.execute(text("""
-                CREATE TABLE post_skills (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    user_id INTEGER NOT NULL, 
-                    skill_id INTEGER NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (id), 
-                    UNIQUE KEY unique_user_skill (user_id, skill_id),
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY(skill_id) REFERENCES skill_masters(skill_id) ON DELETE CASCADE
-                )
-            """))
-            
-            # ユーザー連絡先テーブル
-            conn.execute(text("""
-                CREATE TABLE post_contacts (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    user_id INTEGER NOT NULL, 
-                    contact_id INTEGER NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,  
-                    PRIMARY KEY (id), 
-                    UNIQUE KEY unique_user_contact (user_id, contact_id),
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY(contact_id) REFERENCES contact_methods(id) ON DELETE CASCADE
-                )
-            """))
-            
-            # サンクスポイントテーブル
-            conn.execute(text("""
-                CREATE TABLE thanks (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    give_date DATE NOT NULL, 
-                    giver_user_id INTEGER NOT NULL, 
-                    receiver_user_id INTEGER NOT NULL, 
-                    points INTEGER NOT NULL DEFAULT 1,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (id), 
-                    FOREIGN KEY(giver_user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY(receiver_user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """))
-            
-            # ブックマークテーブル
-            conn.execute(text("""
-                CREATE TABLE bookmarks (
-                    id INTEGER NOT NULL AUTO_INCREMENT, 
-                    bookmark_date DATE NOT NULL, 
-                    bookmarking_user_id INTEGER NOT NULL, 
-                    bookmarked_user_id INTEGER NOT NULL, 
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    PRIMARY KEY (id), 
-                    UNIQUE KEY unique_bookmark (bookmarking_user_id, bookmarked_user_id),
-                    FOREIGN KEY(bookmarking_user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY(bookmarked_user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """))
-        
-        print("SQL直接実行によるテーブル作成完了")
-        return True
-    except Exception as e:
-        print(f"テーブル作成中にエラーが発生しました: {e}")
-        return False
+                        # スキル情報を取得
+#                        skill = db.query(SkillMaster).filter(SkillMaster.skill_id == post_skill.skill_id).first()
+#                        if not skill:
+#                            print(f"スキルID {post_skill.skill_id} が見つかりません")
+#                            continue
 
-# パスワードハッシュ化のヘルパー関数
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+                        # 部署情報を取得
+#                        department_id = None
+#                        department_name = None
+#                        if user.profile and user.profile.department_id:
+#                            department = db.query(Department).filter(Department.id == user.profile.department_id).first()
+#                            if department:
+#                                department_id = department.id
+#                                department_name = department.name
+                        
+                        # 検索結果を作成
+#                        search_result = SearchResult(
+#                            user_id=user.id,
+#                            user_name=user.name or "名前なし",
+#                            skill_id=skill.skill_id,
+#                            skill_name=skill.name,
+#                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+#                            department_id=department_id,
+#                            department_name=department_name,
+#                            similarity_score=results["distances"][0][i] if "distances" in results else 0.0
+#                        )
+#                        search_results.append(search_result)
+#                    else:
+#                        print(f"ID {id_str} に対応するポストスキルが見つかりません")
+#                except Exception as e:
+#                    print(f"ID '{id_str}' の処理中にエラー: {str(e)}")
+#                    continue
+                
+#        print(f"整形後の検索結果: {len(search_results)}件")
+#        return SearchResponse(
+#            results = search_results,
+#            total = len(search_results))
+#    except Exception as e:
+#        print(f"検索処理中にエラーが発生: {str(e)}")
+#        import traceback
+#        traceback.print_exc()
+#        raise HTTPException(status_code=500, detail=f"検索エラー: {str(e)}")
+    
+# スキル検索
+# @search_router.get("/skill/{skill_id}", response_model=SearchResponse)
+# async def search_by_skill(skill_id: int, db: Session = Depends(get_db)):
+#    """
+#    特定のスキルを持つユーザーを検索します
+#    """
+#    try:
+        # スキルの存在確認
+#        skill = db.query(SkillMaster).filter(SkillMaster.skill_id == skill_id).first()
+#        if not skill:
+#            raise HTTPException(status_code=404, detail=f"スキルID {skill_id} は存在しません")
+        
+        # スキルを持つユーザーを検索
+#        post_skills = db.query(PostSkill).filter(PostSkill.skill_id == skill_id).all()
+        
+#        search_results = []
+#        for post_skill in post_skills:
+#            user = db.query(User).filter(User.id == post_skill.user_id).first()
+#            if not user:
+#                continue
 
-# ダミーエンベディングを生成（実際には適切なエンベディングモデルを使用すべき）
-def create_dummy_embedding(text, dimension=384):
-    # OpenAIのエンベディングモデルを使用
-    try:
-        print(f"テキスト '{text}' のエンベディングを生成中...")
-        response = openai.embeddings.create(
-            model=OPENAI_MODEL,
-            input=text
-        )
-        embedding = response.data[0].embedding
-        print(f"エンベディング生成完了: 次元数={len(embedding)}")
-        return embedding
-    except Exception as e:
-        print(f"エンベディング生成エラー: {str(e)}")
-        # 失敗した場合はランダムなエンベディングを生成（デバッグ用）
-        random_embedding = np.random.normal(0, 1, dimension).tolist()
-        print(f"代わりにランダムエンベディングを生成: 次元数={len(random_embedding)}")
-        return random_embedding
-
-def seed_data():
-    # まず新しいテーブル構造を作成
-    if not drop_and_create_tables():
-        return
-
-    db = SessionLocal()
-    try:
-        # 部署データ
-        departments = [
-            Department(name="企画部"),
-            Department(name="リビング戦略部"),
-            Department(name="リビング営業部"),
-            Department(name="エネルギー事業革新部"),
-            Department(name="リビング業務改革部"),
-            Department(name="設備ソリューション事業部"),
-            Department(name="総合設備事業部"),
-            Department(name="BTMソリューションプロジェクト部"),
-            Department(name="WEBソリューションプロジェクト部"),
-            Department(name="ソリューション共創本部")
-        ]
-        db.add_all(departments)
-        db.commit()
-        
-        # 入社形態データ
-        join_forms = [
-            JoinForm(name="新卒入社"),
-            JoinForm(name="中途入社"),
-            JoinForm(name="派遣社員"),
-            JoinForm(name="契約社員"),
-            JoinForm(name="アルバイト")
-        ]
-        db.add_all(join_forms)
-        db.commit()
-        
-        # 歓迎度データ
-        welcome_levels = [
-            WelcomeLevel(level_name="いつでも相談歓迎"),
-            WelcomeLevel(level_name="相談歓迎"),
-            WelcomeLevel(level_name="今は対応不可")
-        ]
-        db.add_all(welcome_levels)
-        db.commit()
-        
-        # スキルマスタデータ
-        skill_masters = [
-            SkillMaster(name="WEBマーケティング全般"),
-            SkillMaster(name="SEO（検索エンジン最適化）"),
-            SkillMaster(name="コンテンツマーケティング"),
-            SkillMaster(name="SNSマーケティング"),
-            SkillMaster(name="広告運用（PPC・リスティング）"),
-            SkillMaster(name="メールマーケティング"),
-            SkillMaster(name="マーケティングオートメーション（MA）"),
-            SkillMaster(name="データ分析と計測"),
-            SkillMaster(name="グロースハック"),
-            SkillMaster(name="Eコマース・D2Cマーケティング"),
-            SkillMaster(name="AI・最新テクノロジーの活用")
-        ]
-        db.add_all(skill_masters)
-        db.commit()
-        
-        # 詳細スキルデータ
-        detail_skills = [
-            DetailSkill(dskill_name="WEBマーケティングの基本領域と手法", skill_id=1),
-            DetailSkill(dskill_name="KPI設定と効果測定", skill_id=1),
-            DetailSkill(dskill_name="内部SEO対策", skill_id=2),
-            DetailSkill(dskill_name="コアウェブバイタル", skill_id=2),
-            DetailSkill(dskill_name="コンテンツ設計", skill_id=3),
-            DetailSkill(dskill_name="コンテンツ戦略", skill_id=3),
-            DetailSkill(dskill_name="SNSキャンペーン設計", skill_id=4),
-            DetailSkill(dskill_name="SNSプラットフォーム選定", skill_id=4),
-            DetailSkill(dskill_name="キーワード戦略・広告クリエイティブ", skill_id=5),
-            DetailSkill(dskill_name="広告パフォーマンス", skill_id=5),
-            DetailSkill(dskill_name="セグメント別パーソナライズ戦略", skill_id=6),
-            DetailSkill(dskill_name="ステップメール", skill_id=6),
-            DetailSkill(dskill_name="リード管理・育成", skill_id=7),
-            DetailSkill(dskill_name="顧客スコアリング", skill_id=7),
-            DetailSkill(dskill_name="Pythonによるデータ分析", skill_id=8),
-            DetailSkill(dskill_name="統計的手法の活用", skill_id=8),
-            DetailSkill(dskill_name="AARRRモデル", skill_id=9),
-            DetailSkill(dskill_name="仮説検証サイクル", skill_id=9),
-            DetailSkill(dskill_name="SNSとインフルエンサー活用", skill_id=10),
-            DetailSkill(dskill_name="ライブコマースと広告の戦略的活用", skill_id=10),
-            DetailSkill(dskill_name="自然言語処理・画像認識技術", skill_id=11),
-            DetailSkill(dskill_name="AI導入", skill_id=11)   
-        ]
-        db.add_all(detail_skills)
-        db.commit()
-        
-        # 連絡方法データ
-        contact_methods = [
-            ContactMethod(name="メール"),
-            ContactMethod(name="Slack"),
-            ContactMethod(name="Teams"),
-            ContactMethod(name="対面"),
-            ContactMethod(name="電話")
-        ]
-        db.add_all(contact_methods)
-        db.commit()
-        
-        # ユーザーデータ
-        users = [
-            User(name="山田太郎", email="yamada@example.com", password_hash=hash_password("password123")),
-            User(name="佐藤花子", email="sato@example.com", password_hash=hash_password("password133")),
-            User(name="鈴木一郎", email="suzuki@example.com", password_hash=hash_password("password223")),
-            User(name="高橋次郎", email="takahashi@example.com", password_hash=hash_password("password323")),
-            User(name="田中三郎", email="tanaka@example.com", password_hash=hash_password("password423"))
-        ]
-        db.add_all(users)
-        db.commit()
-        
-        # プロフィールデータ
-        profiles = [
-            Profile(
-                user_id=1, department_id=1, join_form_id=1, welcome_level_id=1,
-                career=5, history="2018年入社", pr="Pythonが得意です",
-                total_point=25
-            ),
-            Profile(
-                user_id=2, department_id=2, join_form_id=2, welcome_level_id=2,
-                career=3, history="2020年入社", pr="営業経験豊富です",
-                total_point=15
-            ),
-            Profile(
-                user_id=3, department_id=3, join_form_id=1, welcome_level_id=3,
-                career=7, history="2016年入社", pr="人材採用を担当",
-                total_point=30
-            ),
-            Profile(
-                user_id=4, department_id=4, join_form_id=3, welcome_level_id=3,
-                career=2, history="2021年入社", pr="会計資格保持",
-                total_point=10
-            ),
-            Profile(
-                user_id=5, department_id=5, join_form_id=1, welcome_level_id=1,
-                career=4, history="2019年入社", pr="プロジェクト企画が得意",
-                total_point=20
-            )
-        ]
-        db.add_all(profiles)
-        db.commit()
-        
-        # ユーザースキルデータ
-        post_skills = [
-            # 山田のスキル
-            PostSkill(user_id=1, skill_id=1),
-            PostSkill(user_id=1, skill_id=3),
-            PostSkill(user_id=1, skill_id=5),
-            PostSkill(user_id=1, skill_id=11),
-            PostSkill(user_id=1, skill_id=4),
-            # 佐藤のスキル
-            PostSkill(user_id=2, skill_id=4),
-            PostSkill(user_id=2, skill_id=3),
-            PostSkill(user_id=2, skill_id=6),
-            PostSkill(user_id=2, skill_id=2),
-            # 鈴木のスキル
-            PostSkill(user_id=3, skill_id=3),
-            PostSkill(user_id=3, skill_id=4),
-            PostSkill(user_id=3, skill_id=5),
-            PostSkill(user_id=3, skill_id=6),
-            PostSkill(user_id=3, skill_id=8),
-            # 高橋のスキル
-            PostSkill(user_id=4, skill_id=5),
-            PostSkill(user_id=4, skill_id=3),
-            PostSkill(user_id=4, skill_id=7),
-            # 田中のスキル
-            PostSkill(user_id=5, skill_id=2),
-            PostSkill(user_id=5, skill_id=3),
-            PostSkill(user_id=5, skill_id=5),
-            PostSkill(user_id=5, skill_id=8),
-            PostSkill(user_id=5, skill_id=9),
-        ]
-        db.add_all(post_skills)
-        db.commit()
-        
-        # ユーザー連絡先データ
-        post_contacts = [
-            PostContact(user_id=1, contact_id=1),  # 山田：メール
-            PostContact(user_id=1, contact_id=2),  # 山田：Slack
-            PostContact(user_id=2, contact_id=3),  # 佐藤：Teams
-            PostContact(user_id=3, contact_id=4),  # 鈴木：対面
-            PostContact(user_id=4, contact_id=5),  # 高橋：電話
-            PostContact(user_id=5, contact_id=2)   # 田中：Slack
-        ]
-        db.add_all(post_contacts)
-        db.commit()
-        
-        # サンクスポイントデータ
-        thanks_points = [
-            Thanks(give_date=date(2023, 5, 15), giver_user_id=1, receiver_user_id=2, points=3),
-            Thanks(give_date=date(2023, 5, 16), giver_user_id=2, receiver_user_id=3, points=2),
-            Thanks(give_date=date(2023, 5, 17), giver_user_id=3, receiver_user_id=4, points=1),
-            Thanks(give_date=date(2023, 5, 18), giver_user_id=4, receiver_user_id=5, points=2),
-            Thanks(give_date=date(2023, 5, 19), giver_user_id=5, receiver_user_id=1, points=3)
-        ]
-        db.add_all(thanks_points)
-        db.commit()
-        
-        # ブックマークデータ
-        bookmarks = [
-            Bookmark(bookmark_date=date(2023, 6, 1), bookmarking_user_id=1, bookmarked_user_id=2),
-            Bookmark(bookmark_date=date(2023, 6, 2), bookmarking_user_id=2, bookmarked_user_id=3),
-            Bookmark(bookmark_date=date(2023, 6, 3), bookmarking_user_id=3, bookmarked_user_id=4),
-            Bookmark(bookmark_date=date(2023, 6, 4), bookmarking_user_id=4, bookmarked_user_id=5),
-            Bookmark(bookmark_date=date(2023, 6, 5), bookmarking_user_id=5, bookmarked_user_id=1)
-        ]
-        db.add_all(bookmarks)
-        db.commit()
-        
-        # SkillMasterデータとユーザースキルデータをChromaDBにも追加
-        print("\nChromaDBにスキルとプロフィールのエンベディングを追加します...")
-        
-        # スキルマスタのエンベディング追加
-        skills = db.query(SkillMaster).all()
-        print(f"スキルマスタのデータ数: {len(skills)}")
-        for skill in skills:
-            # 実際のアプリケーションでは適切なエンベディングモデルを使用
-            embedding = create_dummy_embedding(skill.name)
-            metadata = {"skill_id": skill.skill_id, "name": skill.name}
+            # 部署情報を取得
+#            department_id = None
+#            department_name = None
+#            if user.profile and user.profile.department_id:
+#                department = db.query(Department).filter(Department.id == user.profile.department_id).first()
+#                if department:
+#                    department_id = department.id
+#                    department_name = department.name
             
-            print(f"スキル '{skill.name}' (skill_id={skill.skill_id})のエンベディングを追加します")
+#            search_result = SearchResult(
+#                user_id=user.id,
+#                user_name=user.name or "名前なし",
+#                skill_id=skill.skill_id,
+#                skill_name=skill.name,
+#                description=None,
+#                department_id=department_id,
+#                department_name=department_name,
+#                similarity_score=1.0  # 完全一致
+#            )
+#            search_results.append(search_result)
             
-            # エンベディングの追加
-            add_embedding(
-                id=f"skill_{skill.skill_id}",  # 'skill_N'形式でIDを設定する
-                embedding=embedding,
-                metadata=metadata,
-                text=skill.name,
-                collection_name="skills"
-            )
-        
-        # ユーザープロフィールのエンベディング追加
-        profiles = db.query(Profile).join(User).all()
-        print(f"プロフィールデータ数: {len(profiles)}")
-        for profile in profiles:
-            # プロフィールの特徴を表すテキスト作成
-            profile_text = f"{profile.user.name} {profile.pr} {profile.history}"
-            embedding = create_dummy_embedding(profile_text)
-            metadata = {
-                "user_id": profile.user_id,
-                "name": profile.user.name,
-                "department_id": profile.department_id,
-                "career": profile.career
-            }
             
-            print(f"プロフィール '{profile.user.name}' (user_id={profile.user_id})のエンベディングを追加します")
-            add_embedding(
-                id=f"profile_{profile.user_id}",
-                embedding=embedding,
-                metadata=metadata,
-                text=profile_text,
-                collection_name="profiles"
-            )
-        
-        print("データシードが完了しました")
-        
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")
-        db.rollback()
-    finally:
-        db.close()
+#        return SearchResponse(
+#            results=search_results,
+#            total=len(search_results)
+#        )
+#    except Exception as e:
+#        print(f"スキル検索エラー: {str(e)}")
+#        raise HTTPException(status_code=500, detail=f"スキル検索エラー: {str(e)}"   )
 
-if __name__ == "__main__":
-    seed_data() 
+# @search_router.get("/department/{department_id}", response_model=SearchResponse)
+# async def search_by_department(department_id: int, db: Session = Depends(get_db)):
+#    """
+#    特定の部署に所属するユーザーを検索します
+#    """
+#    try:
+        # 部署の存在確認
+#        department = db.query(Department).filter(Department.id == department_id).first()
+#        if not department:
+#            raise HTTPException(status_code=404, detail=f"部署ID {department_id} は存在しません")
+        
+        # 部署に所属するユーザーを検索 (Profileテーブル経由)
+#        profiles = db.query(Profile).filter(Profile.department_id == department_id).all()
+        
+#        search_results = []
+#        for profile in profiles:
+#            user = db.query(User).filter(User.id == profile.user_id).first()
+#            if not user:
+#                continue
+            
+            # ユーザーの主要スキルを取得（存在すれば）
+#            post_skill = db.query(PostSkill).filter(PostSkill.user_id == user.id).first()
+#            skill_id = None
+#            skill_name = None
+#            description = None
+            
+#            if post_skill:
+#                skill = db.query(SkillMaster).filter(SkillMaster.id == post_skill.skill_id).first()
+#                if skill:
+#                    skill_id = skill.id
+#                    skill_name = skill.name
+#                    description = post_skill.description
+            
+#            search_result = SearchResult(
+#                user_id=user.id,
+#                user_name=user.name or "名前なし",
+#                skill_id=skill_id,
+#                skill_name=skill_name,
+#                description=description,
+#                department_id=department.id,
+#                department_name=department.name,
+#                similarity_score=1.0  # 完全一致
+#            )
+#            search_results.append(search_result)
+        
+#        return SearchResponse(
+#            results=search_results,
+#            total=len(search_results)
+#        )
+#    except HTTPException:
+#        raise
+#    except Exception as e:
+#        raise HTTPException(status_code=500, detail=f"部署検索エラー: {str(e)}") 
