@@ -25,7 +25,7 @@ def get_chroma_client():
     try:
         # まずHTTPクライアントで接続を試みる
         host = os.getenv('CHROMA_HOST', 'localhost')
-        port = int(os.getenv('CHROMA_PORT', '8000'))
+        port = int(os.getenv('CHROMA_PORT', '8080'))
         
         _chroma_client = chromadb.HttpClient(
             host=host,
@@ -42,7 +42,7 @@ def get_chroma_client():
                 allow_reset=False
             )
         )
-        print("ChromaDB PersistentClientを作成しました")
+        print(f"ChromaDB PersistentClientを作成しました")
 
     return _chroma_client
 

@@ -1,3 +1,42 @@
+# SQLite3バージョン問題を解決するためのパッチ
+import sys
+import os
+import importlib
+
+def patch_sqlite3():
+    """SQLite3をpysqlite3で置き換える"""
+    try:
+        print(f"Python version: {sys.version}")
+        print(f"Current working directory: {os.getcwd()}")
+        
+        # 既存のsqlite3モジュールを削除
+        if 'sqlite3' in sys.modules:
+            del sys.modules['sqlite3']
+        
+        # pysqlite3をインポート
+        import pysqlite3
+        # モジュールパッチ
+        sys.modules['sqlite3'] = pysqlite3
+        print("Successfully patched sqlite3 with pysqlite3")
+        
+        # パッチが成功したことを確認
+        import sqlite3
+        print(f"SQLite3 version after patch: {sqlite3.sqlite_version}")
+        return True
+    except Exception as e:
+        print(f"Failed to patch sqlite3: {str(e)}")
+        return False
+
+# パッチを実行
+if not patch_sqlite3():
+    print("Warning: SQLite3 patch failed, using system sqlite3")
+
+# 環境変数のパスを設定
+if "LD_LIBRARY_PATH" in os.environ:
+    print(f"Current LD_LIBRARY_PATH: {os.environ['LD_LIBRARY_PATH']}")
+else:
+    print("LD_LIBRARY_PATH not set")
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from db_connection.connect_Chroma import list_collection_items, search_similar

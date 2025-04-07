@@ -1,3 +1,12 @@
+# SQLite3の設定
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
-python -m pip install pysqlite3-binary
+python -m pip install --upgrade pip
+python -m pip install --no-cache-dir --force-reinstall pysqlite3-binary
+echo "Installed pysqlite3-binary"
+
+# ChromaDBの初期化
+echo "Initializing ChromaDB..."
+python init_chroma.py
+
+# アプリの起動
 python -m uvicorn app:app --host 0.0.0.0
