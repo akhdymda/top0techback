@@ -19,3 +19,5 @@ python-jose==3.3.0
 pysqlite3-binary==0.5.4
 # Pydantic設定用パッケージ
 pydantic-settings==2.2.1
+# メールバリデーション用パッケージ
+email-validator==2.1.0.post1
