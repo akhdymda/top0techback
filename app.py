@@ -90,6 +90,23 @@ class BookmarkListResponse(BaseModel):
         "from_attributes": True
     }
 
+# ユーザー詳細のレスポンスモデル
+class UserDetailResponse(BaseModel):
+    id: int
+    name: str
+    department: str
+    position: str
+    yearsOfService: int
+    joinForm: str
+    skills: List[str]
+    experiences: List[Dict[str, str]]
+    description: Optional[str] = None
+    imageUrl: Optional[str] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
 # スキル検索API
 @app.get("/skills/{skill_name}", response_model=SkillResponse)
 def read_skill(skill_name: str):
@@ -425,49 +442,51 @@ def chroma_status():
         raise HTTPException(status_code=500, detail=f"ChromaDB状態確認エラー: {str(e)}")
 
 # ユーザー詳細取得API
-@app.get("/user/{user_id}", response_model=UserResponse)
-def read_user(user_id: int):
-    db = SessionLocal()
-    try:
-        # ユーザーを検索（関連するデータも一緒に取得）
-        user = (
-            db.query(DBUser)
-            .join(Profile, DBUser.id == Profile.user_id)
-            .join(DBDepartment, Profile.department_id == DBDepartment.id)
-            .options(
-                joinedload(DBUser.profile).joinedload(Profile.department),
-                joinedload(DBUser.profile).joinedload(Profile.join_form),
-                joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
-            )
-            .filter(DBUser.id == user_id)
-            .first()
+@app.get("/users/{user_id}", response_model=UserDetailResponse)
+def get_user_detail(user_id: int, db: Session = Depends(get_db)):
+    user = (
+        db.query(DBUser)
+        .join(Profile, DBUser.id == Profile.user_id)
+        .join(DBDepartment, Profile.department_id == DBDepartment.id)
+        .options(
+            joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(DBUser.profile).joinedload(Profile.join_form),
+            joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
         )
+        .filter(DBUser.id == user_id)
+        .first()
+    )
 
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # ユーザーのスキルを取得
-        skills = [post_skill.skill.name for post_skill in user.posted_skills]
-        profile = user.profile
+    profile = user.profile
+    user_skills = [ps.skill.name for ps in user.posted_skills]
 
-        # デバッグ情報を出力
-        print(f"Found user: {user.name} (ID: {user.id})")
-        print(f"Department: {profile.department.name if profile and profile.department else '未所属'}")
-        print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-        print(f"Skills: {skills}")
+    # 経験・実績のダミーデータ
+    experiences = [
+        {
+            "title": "大規模プロジェクトのマネジメント",
+            "description": "100人規模のチームで新規サービスの立ち上げを担当。スケジュール管理からリスク管理まで一貫して対応。"
+        },
+        {
+            "title": "マーケティング戦略の立案と実行",
+            "description": "複数の新規サービスのマーケティング戦略を担当。ユーザー獲得からブランディングまで幅広く対応。"
+        }
+    ]
 
-        return UserResponse(
-            id=user.id,
-            name=user.name,
-            department=profile.department.name if profile and profile.department else "未所属",
-            yearsOfService=profile.career if profile else 0,
-            skills=skills,
-            description=profile.pr if profile else "",
-            joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-        )
-
-    finally:
-        db.close()
+    return UserDetailResponse(
+        id=user.id,
+        name=user.name,
+        department=profile.department.name if profile and profile.department else "未所属",
+        position="マーケティング部 / プロジェクトマネージャー",  # ダミーデータ
+        yearsOfService=profile.career if profile else 0,
+        joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+        skills=user_skills,
+        experiences=experiences,
+        description=profile.pr if profile else None,
+        imageUrl=None  # 画像URLはまだ実装されていないため、None
+    )
 
 # ブックマーク追加API
 @app.post("/bookmarks/{user_id}/{bookmarked_user_id}", response_model=BookmarkResponse)
