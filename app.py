@@ -2,12 +2,15 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from db_connection.connect_Chroma import list_collection_items, search_similar
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any, Optional
 from db_connection.connect_MySQL import SessionLocal, get_db
-from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile
+from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile, Bookmark
 from sqlalchemy.orm import joinedload, Session
 from db_model.schemas import SkillResponse, SearchResponse, UserResponse, SearchResult, DepartmentResponse
 from db_connection.embedding import get_text_embedding
+import signal
+import sys
+from datetime import datetime
 
 app = FastAPI()
 
@@ -20,17 +23,87 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# シンプルな部署レスポンスモデル
+class SimpleDepartmentResponse(BaseModel):
+    name: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# シンプルなスキルレスポンスモデル
+class SimpleSkillResponse(BaseModel):
+    name: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# ユーザー情報のレスポンスモデル
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    department: str
+    yearsOfService: int
+    skills: List[str]
+    description: str
+    joinForm: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# スキル検索のレスポンスモデル
+class SkillResponse(BaseModel):
+    name: str
+    users: List[Dict[str, Any]]
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# 部署検索のレスポンスモデル
+class DepartmentResponse(BaseModel):
+    name: str
+    users: List[Dict[str, Any]]
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# ブックマークのレスポンスモデル
+class BookmarkResponse(BaseModel):
+    id: int
+    user_id: int
+    bookmarked_user_id: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# ブックマーク一覧のレスポンスモデル
+class BookmarkListResponse(BaseModel):
+    bookmarks: List[Dict[str, Any]]
+
+    model_config = {
+        "from_attributes": True
+    }
+
 # スキル検索API
 @app.get("/skills/{skill_name}", response_model=SkillResponse)
 def read_skill(skill_name: str):
     db = SessionLocal()
     try:
+        print(f"スキル検索開始: {skill_name}")
+        
         # スキルを検索
         skill = db.query(SkillMaster).filter(SkillMaster.name == skill_name).first()
         if not skill:
+            print(f"スキルが見つかりません: {skill_name}")
             raise HTTPException(status_code=404, detail="Skill not found")
 
-        print(f"Found skill: {skill.name} (ID: {skill.skill_id})")
+        print(f"スキルが見つかりました: {skill.name} (ID: {skill.skill_id})")
 
         # スキルを持つユーザーを取得
         users_with_skill = (
@@ -44,12 +117,12 @@ def read_skill(skill_name: str):
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
             .filter(PostSkill.skill_id == skill.skill_id)
-            .order_by(DBUser.id)  # 一貫した順序で結果を取得
+            .order_by(DBUser.id)
             .distinct()
             .all()
         )
 
-        print(f"Found {len(users_with_skill)} users with skill")
+        print(f"スキルを持つユーザー数: {len(users_with_skill)}")
 
         # レスポンス用のユーザーリストを作成
         users = []
@@ -59,82 +132,36 @@ def read_skill(skill_name: str):
             profile = user.profile
             
             # デバッグ情報を追加
-            print(f"Processing user: {user.name} (ID: {user.id})")
-            print(f"Department: {profile.department.name if profile and profile.department else '未所属'}")
-            print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-            print(f"Skills: {user_skills}")
+            print(f"ユーザー処理中: {user.name} (ID: {user.id})")
+            print(f"部署: {profile.department.name if profile and profile.department else '未所属'}")
+            print(f"入社形態: {profile.join_form.name if profile and profile.join_form else '未設定'}")
+            print(f"スキル: {user_skills}")
 
-            users.append(
-                UserResponse(
-                    id=user.id,
-                    name=user.name,
-                    department=profile.department.name if profile and profile.department else "未所属",
-                    yearsOfService=profile.career if profile else 0,
-                    skills=user_skills,
-                    description=profile.pr if profile else "",
-                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-                )
+            user_response = UserResponse(
+                id=user.id,
+                name=user.name,
+                department=profile.department.name if profile and profile.department else "未所属",
+                yearsOfService=profile.career if profile else 0,
+                skills=user_skills,
+                description=profile.pr if profile else "",
+                joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
             )
+            users.append(user_response.model_dump())
 
         response = SkillResponse(name=skill_name, users=users)
-        print(f"Sending response with {len(users)} users")
+        print(f"レスポンス送信: {len(users)} ユーザー")
         return response
 
     finally:
         db.close()
 
 # 全スキル取得API
-@app.get("/skills", response_model=List[SkillResponse])
+@app.get("/skills", response_model=List[SimpleSkillResponse])
 def read_skills():
     db = SessionLocal()
     try:
         skills = db.query(SkillMaster).all()
-        
-        skill_responses = []
-        for skill in skills:
-            # スキルを持つユーザーを取得
-            users_with_skill = (
-                db.query(DBUser)
-                .join(PostSkill, DBUser.id == PostSkill.user_id)
-                .join(SkillMaster, PostSkill.skill_id == SkillMaster.skill_id)
-                .join(Profile, DBUser.id == Profile.user_id)
-                .options(
-                    joinedload(DBUser.profile).joinedload(Profile.department),
-                    joinedload(DBUser.profile).joinedload(Profile.join_form),
-                    joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
-                )
-                .filter(SkillMaster.name == skill.name)
-                .all()
-            )
-            
-            users = []
-            for user in users_with_skill:
-                # ユーザーのスキルを取得
-                user_skills = []
-                for post_skill in user.posted_skills:
-                    print(f"Processing skill for user {user.name} in skill {skill.name}: {post_skill.skill.name}")
-                    user_skills.append(post_skill.skill.name)
-
-                profile = user.profile
-                print(f"Processing user: {user.name} for skill {skill.name}")
-                print(f"Skills: {user_skills}")
-                
-                users.append(
-                    UserResponse(
-                        id=user.id,
-                        name=user.name,
-                        department=profile.department.name if profile and profile.department else "未所属",
-                        yearsOfService=profile.career if profile else 0,
-                        skills=user_skills,
-                        description=profile.pr if profile else "",
-                        joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-                    )
-                )
-            
-            skill_responses.append(SkillResponse(name=skill.name, users=users))
-        
-        return skill_responses
-    
+        return [SimpleSkillResponse(name=skill.name) for skill in skills]
     finally:
         db.close()
 
@@ -147,9 +174,17 @@ async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)
     """
     print(f"検索クエリ: {query}, 取得件数上限: {limit}")
     
+    if not query:
+        print("エラー: 検索クエリが空です")
+        return SearchResponse(results=[], total=0)
+    
     try:
         # テキストからエンベディングを生成
         embedding = get_text_embedding(query)
+        if embedding is None:
+            print("エラー: エンベディング生成に失敗しました")
+            return SearchResponse(results=[], total=0)
+            
         print(f"エンベディング生成完了。次元数: {len(embedding)}")
 
         # ChromaDBで類似検索を実行
@@ -209,7 +244,7 @@ async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)
                             user_name=user.name or "名前なし",
                             skill_id=skill.skill_id,
                             skill_name=skill.name,
-                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+                            description=None,
                             department_id=department_id,
                             department_name=department_name,
                             similarity_score=results["distances"][0][i] if "distances" in results else 0.0
@@ -256,7 +291,7 @@ async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)
                             user_name=user.name or "名前なし",
                             skill_id=skill.skill_id,
                             skill_name=skill.name,
-                            description=None,  # description フィールドは削除されましたが、スキーマとの整合性のために None を設定
+                            description=None,
                             department_id=department_id,
                             department_name=department_name,
                             similarity_score=results["distances"][0][i] if "distances" in results else 0.0
@@ -276,19 +311,22 @@ async def fuzzy_search(query: str, limit: int = 5, db: Session = Depends(get_db)
         print(f"検索処理中にエラーが発生: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"検索エラー: {str(e)}")
+        return SearchResponse(results=[], total=0)
 
 #部署検索API
 @app.get("/departments/{department_name}", response_model=DepartmentResponse)
 def read_department(department_name: str):
     db = SessionLocal()
     try:
+        print(f"部署検索開始: {department_name}")
+        
         # 部署を検索
         department = db.query(DBDepartment).filter(DBDepartment.name == department_name).first()
         if not department:
+            print(f"部署が見つかりません: {department_name}")
             raise HTTPException(status_code=404, detail="Department not found")
 
-        print(f"Found department: {department.name} (ID: {department.id})")
+        print(f"部署が見つかりました: {department.name} (ID: {department.id})")
 
         # 部署に所属するユーザーを取得
         users_in_department = (
@@ -301,12 +339,12 @@ def read_department(department_name: str):
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
             .filter(DBDepartment.id == department.id)
-            .order_by(DBUser.id)  # 一貫した順序で結果を取得
+            .order_by(DBUser.id)
             .distinct()
             .all()
         )
 
-        print(f"Found {len(users_in_department)} users in department")
+        print(f"部署に所属するユーザー数: {len(users_in_department)}")
 
         # レスポンス用のユーザーリストを作成
         users = []
@@ -316,79 +354,36 @@ def read_department(department_name: str):
             profile = user.profile
             
             # デバッグ情報を追加
-            print(f"Processing user: {user.name} (ID: {user.id})")
-            print(f"Department: {department_name}")
-            print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-            print(f"Skills: {user_skills}")
+            print(f"ユーザー処理中: {user.name} (ID: {user.id})")
+            print(f"部署: {department_name}")
+            print(f"入社形態: {profile.join_form.name if profile and profile.join_form else '未設定'}")
+            print(f"スキル: {user_skills}")
 
-            users.append(
-                UserResponse(
-                    id=user.id,
-                    name=user.name,
-                    department=department_name,
-                    yearsOfService=profile.career if profile else 0,
-                    skills=user_skills,
-                    description=profile.pr if profile else "",
-                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-                )
+            user_response = UserResponse(
+                id=user.id,
+                name=user.name,
+                department=department_name,
+                yearsOfService=profile.career if profile else 0,
+                skills=user_skills,
+                description=profile.pr if profile else "",
+                joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
             )
+            users.append(user_response.model_dump())
 
         response = DepartmentResponse(name=department_name, users=users)
-        print(f"Sending response with {len(users)} users")
+        print(f"レスポンス送信: {len(users)} ユーザー")
         return response
 
     finally:
         db.close()
 
 # 全部署取得API
-@app.get("/departments", response_model=List[DepartmentResponse])
+@app.get("/departments", response_model=List[SimpleDepartmentResponse])
 def read_departments():
     db = SessionLocal()
     try:
         departments = db.query(DBDepartment).order_by(DBDepartment.id).all()
-        
-        department_responses = []
-        for department in departments:
-            # 部署に所属するユーザーを取得
-            users_in_department = (
-                db.query(DBUser)
-                .join(Profile, DBUser.id == Profile.user_id)
-                .join(DBDepartment, Profile.department_id == DBDepartment.id)
-                .options(
-                    joinedload(DBUser.profile).joinedload(Profile.department),
-                    joinedload(DBUser.profile).joinedload(Profile.join_form),
-                    joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
-                )
-                .filter(DBDepartment.id == department.id)
-                .order_by(DBUser.id)  # 一貫した順序で結果を取得
-                .distinct()
-                .all()
-            )
-            
-            users = []
-            for user in users_in_department:
-                # ユーザーのスキルを取得
-                user_skills = [ps.skill.name for ps in user.posted_skills]
-                profile = user.profile
-                print(f"Processing user: {user.name} (ID: {user.id}) in {department.name}")
-                print(f"Skills: {user_skills}")
-                
-                users.append(
-                    UserResponse(
-                        id=user.id,
-                        name=user.name,
-                        department=department.name,
-                        yearsOfService=profile.career if profile else 0,
-                        skills=user_skills,
-                        description=profile.pr if profile else "",
-                        joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-                    )
-                )
-            
-            department_responses.append(DepartmentResponse(name=department.name, users=users))
-        
-        return department_responses
-    
+        return [SimpleDepartmentResponse(name=department.name) for department in departments]
     finally:
         db.close()
 
@@ -473,3 +468,96 @@ def read_user(user_id: int):
 
     finally:
         db.close()
+
+# ブックマーク追加API
+@app.post("/bookmarks/{user_id}/{bookmarked_user_id}", response_model=BookmarkResponse)
+def create_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    # 既存のブックマークをチェック
+    existing_bookmark = db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+    
+    if existing_bookmark:
+        raise HTTPException(status_code=400, detail="Already bookmarked")
+    
+    # 新しいブックマークを作成
+    bookmark = Bookmark(
+        user_id=user_id,
+        bookmarked_user_id=bookmarked_user_id
+    )
+    
+    db.add(bookmark)
+    db.commit()
+    db.refresh(bookmark)
+    
+    return bookmark
+
+# ブックマーク削除API
+@app.delete("/bookmarks/{user_id}/{bookmarked_user_id}")
+def delete_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    bookmark = db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+    
+    if not bookmark:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    
+    db.delete(bookmark)
+    db.commit()
+    
+    return {"message": "Bookmark deleted successfully"}
+
+# ブックマーク一覧取得API
+@app.get("/bookmarks/{user_id}", response_model=BookmarkListResponse)
+def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
+    bookmarks = (
+        db.query(Bookmark)
+        .join(DBUser, Bookmark.bookmarked_user_id == DBUser.id)
+        .join(Profile, DBUser.id == Profile.user_id)
+        .join(DBDepartment, Profile.department_id == DBDepartment.id)
+        .options(
+            joinedload(Bookmark.bookmarked_user).joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(Bookmark.bookmarked_user).joinedload(DBUser.profile).joinedload(Profile.join_form),
+            joinedload(Bookmark.bookmarked_user).joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
+        )
+        .filter(Bookmark.user_id == user_id)
+        .all()
+    )
+    
+    bookmark_list = []
+    for bookmark in bookmarks:
+        user = bookmark.bookmarked_user
+        profile = user.profile
+        user_skills = [ps.skill.name for ps in user.posted_skills]
+        
+        bookmark_list.append({
+            "id": bookmark.id,
+            "user_id": user.id,
+            "name": user.name,
+            "department": profile.department.name if profile and profile.department else "未所属",
+            "yearsOfService": profile.career if profile else 0,
+            "skills": user_skills,
+            "description": profile.pr if profile else "",
+            "joinForm": profile.join_form.name if profile and profile.join_form else "未設定",
+            "created_at": bookmark.created_at
+        })
+    
+    return BookmarkListResponse(bookmarks=bookmark_list)
+
+# ブックマーク状態確認API
+@app.get("/bookmarks/{user_id}/{bookmarked_user_id}/status")
+def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    bookmark = db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+    
+    return {"is_bookmarked": bookmark is not None}
+
+def signal_handler(sig, frame):
+    print("\nサーバーを停止します...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
