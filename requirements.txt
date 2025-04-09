@@ -23,4 +23,4 @@ pinecone-client==3.0.2
 # Langchain用パッケージ
 langchain==0.1.19
 langchain-openai==0.1.10
-langchain-community==0.0.28
+langchain-community==0.0.38
