@@ -21,6 +21,6 @@ email-validator==2.1.0.post1
 # Pineconeベクトルデータベース用パッケージ
 pinecone-client==3.0.2
 # Langchain用パッケージ
-langchain==0.1.19
-langchain-openai==0.1.10
-langchain-community==0.0.38
+langchain==0.3.23
+langchain-openai==0.3.12
+langchain-community==0.3.10
