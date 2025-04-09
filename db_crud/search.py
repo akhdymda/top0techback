@@ -1,6 +1,5 @@
 # from fastapi import APIRouter, Depends, HTTPException
 # from db_connection.connect_MySQL import get_db
-# from db_connection.connect_Chroma import search_similar
 # from db_connection.embedding import get_text_embedding
 # from db_model.schemas import SearchResponse, SearchResult
 # from db_model.tables import PostSkill, User, SkillMaster, Department, Profile

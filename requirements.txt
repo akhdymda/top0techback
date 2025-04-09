@@ -9,15 +9,18 @@ numpy==1.26.2
 python-dateutil==2.8.2
 PyMySQL==1.1.0
 mysqlclient==2.2.1
-chromadb==0.4.22
 openai==1.12.0
 python-multipart==0.0.20
 passlib==1.7.4
 bcrypt==4.2.1
 python-jose==3.3.0
-# SQLite3の問題を解決するためのパッケージ
-pysqlite3-binary==0.5.4
 # Pydantic設定用パッケージ
 pydantic-settings==2.2.1
 # メールバリデーション用パッケージ
 email-validator==2.1.0.post1
+# Pineconeベクトルデータベース用パッケージ
+pinecone-client==3.0.2
+# Langchain用パッケージ
+langchain==0.1.12
+langchain-openai==0.1.10
+langchain-community==0.0.19
