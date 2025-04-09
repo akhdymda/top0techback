@@ -15,7 +15,7 @@ passlib==1.7.4
 bcrypt==4.2.1
 python-jose==3.3.0
 # Pydantic設定用パッケージ
-pydantic-settings==2.2.1
+pydantic-settings==2.4.0
 # メールバリデーション用パッケージ
 email-validator==2.1.0.post1
 # Pineconeベクトルデータベース用パッケージ
