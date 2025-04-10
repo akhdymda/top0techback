@@ -1,3 +1,10 @@
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
-python -m pip install pysqlite3-binary
+# 必要なパッケージのインストール
+python -m pip install --upgrade pip
+# エラー解決のために絶対パスでインストールディレクトリを指定
+export PYTHONPATH="$PYTHONPATH:/home/site/wwwroot/venv/lib/python3.12/site-packages"
+python -m pip install --no-cache-dir pydantic-settings==2.2.1
+python -m pip install --no-cache-dir email-validator==2.1.0.post1
+echo "Installed required packages"
+
+# アプリの起動
 python -m uvicorn app:app --host 0.0.0.0

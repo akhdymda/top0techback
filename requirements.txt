@@ -1,18 +1,26 @@
-fastapi==0.115.6
-uvicorn==0.34.0
-SQLAlchemy==2.0.37
-pydantic==2.10.4
-python-dotenv==1.0.1
-requests==2.32.3
-pandas==2.2.3
-numpy==2.2.1
-python-dateutil==2.9.0
-PyMySQL==1.1.1
+fastapi==0.109.0
+uvicorn==0.27.0
+sqlalchemy==2.0.23
+pydantic==2.7.4
+python-dotenv==1.0.0
+requests==2.31.0
+pandas==2.1.4
+numpy==1.26.2
+python-dateutil==2.8.2
+PyMySQL==1.1.0
 mysqlclient==2.2.1
-# 古いバージョンに変更 (SQLite3の要件が低いバージョン)
-chromadb==0.3.26
-openai==1.60.1
+openai==1.68.2
 python-multipart==0.0.20
 passlib==1.7.4
 bcrypt==4.2.1
 python-jose==3.3.0
+# Pydantic設定用パッケージ
+pydantic-settings==2.4.0
+# メールバリデーション用パッケージ
+email-validator==2.1.0.post1
+# Pineconeベクトルデータベース用パッケージ
+pinecone-client==3.0.2
+# Langchain用パッケージ
+langchain==0.3.23
+langchain-openai==0.3.12
+langchain-community==0.3.10

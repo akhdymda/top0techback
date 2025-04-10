@@ -25,7 +25,6 @@ try:
         DetailSkill, ContactMethod, Profile, PostSkill, 
         PostContact, Thanks, Bookmark
     )
-    from db_connection.connect_Chroma import add_embedding, get_chroma_client
 except ModuleNotFoundError as e:
     print(f"モジュールのインポートエラー: {e}")
     print(f"現在のディレクトリ: {os.getcwd()}")
@@ -230,20 +229,15 @@ def hash_password(password):
 def create_dummy_embedding(text, dimension=384):
     # OpenAIのエンベディングモデルを使用
     try:
-        print(f"テキスト '{text}' のエンベディングを生成中...")
         response = openai.embeddings.create(
             model=OPENAI_MODEL,
             input=text
         )
-        embedding = response.data[0].embedding
-        print(f"エンベディング生成完了: 次元数={len(embedding)}")
-        return embedding
+        return response.data[0].embedding
     except Exception as e:
-        print(f"エンベディング生成エラー: {str(e)}")
-        # 失敗した場合はランダムなエンベディングを生成（デバッグ用）
-        random_embedding = np.random.normal(0, 1, dimension).tolist()
-        print(f"代わりにランダムエンベディングを生成: 次元数={len(random_embedding)}")
-        return random_embedding
+        print(f"OpenAIエンベディング生成エラー: {e}")
+        # エラーの場合はランダムな埋め込みを返す
+        return list(np.random.random(dimension))
 
 def seed_data():
     # まず新しいテーブル構造を作成
@@ -583,51 +577,6 @@ def seed_data():
         ]
         db.add_all(bookmarks)
         db.commit()
-        
-        # SkillMasterデータとユーザースキルデータをChromaDBにも追加
-        print("\nChromaDBにスキルとプロフィールのエンベディングを追加します...")
-        
-        # スキルマスタのエンベディング追加
-        skills = db.query(SkillMaster).all()
-        print(f"スキルマスタのデータ数: {len(skills)}")
-        for skill in skills:
-            # 実際のアプリケーションでは適切なエンベディングモデルを使用
-            embedding = create_dummy_embedding(skill.name)
-            metadata = {"skill_id": skill.skill_id, "name": skill.name}
-            
-            print(f"スキル '{skill.name}' (skill_id={skill.skill_id})のエンベディングを追加します")
-            
-            # エンベディングの追加
-            add_embedding(
-                id=f"skill_{skill.skill_id}",  # 'skill_N'形式でIDを設定する
-                embedding=embedding,
-                metadata=metadata,
-                text=skill.name,
-                collection_name="skills"
-            )
-        
-        # ユーザープロフィールのエンベディング追加
-        profiles = db.query(Profile).join(User).all()
-        print(f"プロフィールデータ数: {len(profiles)}")
-        for profile in profiles:
-            # プロフィールの特徴を表すテキスト作成
-            profile_text = f"{profile.user.name} {profile.pr} {profile.history}"
-            embedding = create_dummy_embedding(profile_text)
-            metadata = {
-                "user_id": profile.user_id,
-                "name": profile.user.name,
-                "department_id": profile.department_id,
-                "career": profile.career
-            }
-            
-            print(f"プロフィール '{profile.user.name}' (user_id={profile.user_id})のエンベディングを追加します")
-            add_embedding(
-                id=f"profile_{profile.user_id}",
-                embedding=embedding,
-                metadata=metadata,
-                text=profile_text,
-                collection_name="profiles"
-            )
         
         print("データシードが完了しました")
         

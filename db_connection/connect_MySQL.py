@@ -53,4 +53,4 @@ def get_db():
 Base.metadata.create_all(engine)
 
 print("Current working directory:", os.getcwd())
-print("Certificate file exists:", os.path.exists('DigiCertGlobalRootCA.crt.pem'))
+print("Certificate file exists:", os.path.exists('DigiCertGlobalRootG2.crt.pem'))
