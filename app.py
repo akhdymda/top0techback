@@ -12,6 +12,7 @@ from db_connection.embedding import get_text_embedding
 import signal
 import sys
 from datetime import datetime
+import base64
 
 app = FastAPI()
 
@@ -50,6 +51,7 @@ class UserResponse(BaseModel):
     description: str
     joinForm: str
     welcome_level: Optional[str] = None
+    imageUrl: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -58,7 +60,7 @@ class UserResponse(BaseModel):
 # スキル検索のレスポンスモデル
 class SkillResponse(BaseModel):
     name: str
-    users: List[Dict[str, Any]]
+    users: List[UserResponse]
 
     model_config = {
         "from_attributes": True
@@ -67,7 +69,7 @@ class SkillResponse(BaseModel):
 # 部署検索のレスポンスモデル
 class DepartmentResponse(BaseModel):
     name: str
-    users: List[Dict[str, Any]]
+    users: List[UserResponse]
 
     model_config = {
         "from_attributes": True
@@ -168,6 +170,17 @@ def read_skill(skill_name: str):
             user_skills = [ps.skill.name for ps in user.posted_skills]
             profile = user.profile
             
+            # 画像データの処理
+            image_url = None
+            if profile and profile.image_data and profile.image_data_type:
+                try:
+                    encoded_image = base64.b64encode(profile.image_data).decode('utf-8')
+                    image_url = f"data:{profile.image_data_type};base64,{encoded_image}"
+                    print(f"画像データを処理しました: サイズ={len(profile.image_data)}バイト, タイプ={profile.image_data_type}")
+                except Exception as e:
+                    print(f"画像データの処理中にエラーが発生: {str(e)}")
+                    image_url = None
+            
             # デバッグ情報を追加
             print(f"ユーザー処理中: {user.name} (ID: {user.id})")
             print(f"部署: {profile.department.name if profile and profile.department else '未所属'}")
@@ -182,9 +195,10 @@ def read_skill(skill_name: str):
                 skills=user_skills,
                 description=profile.pr if profile else "",
                 joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
-                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
+                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
+                imageUrl=image_url
             )
-            users.append(user_response.model_dump())
+            users.append(user_response)
 
         response = SkillResponse(name=skill_name, users=users)
         print(f"レスポンス送信: {len(users)} ユーザー")
@@ -358,6 +372,17 @@ def read_department(department_name: str):
             user_skills = [ps.skill.name for ps in user.posted_skills]
             profile = user.profile
             
+            # 画像データの処理
+            image_url = None
+            if profile and profile.image_data and profile.image_data_type:
+                try:
+                    encoded_image = base64.b64encode(profile.image_data).decode('utf-8')
+                    image_url = f"data:{profile.image_data_type};base64,{encoded_image}"
+                    print(f"画像データを処理しました: サイズ={len(profile.image_data)}バイト, タイプ={profile.image_data_type}")
+                except Exception as e:
+                    print(f"画像データの処理中にエラーが発生: {str(e)}")
+                    image_url = None
+            
             # デバッグ情報を追加
             print(f"ユーザー処理中: {user.name} (ID: {user.id})")
             print(f"部署: {department_name}")
@@ -372,9 +397,10 @@ def read_department(department_name: str):
                 skills=user_skills,
                 description=profile.pr if profile else "",
                 joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
-                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
+                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
+                imageUrl=image_url
             )
-            users.append(user_response.model_dump())
+            users.append(user_response)
 
         response = DepartmentResponse(name=department_name, users=users)
         print(f"レスポンス送信: {len(users)} ユーザー")
@@ -420,6 +446,18 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
     profile = user.profile
     user_skills = [ps.skill.name for ps in user.posted_skills]
 
+    # 画像データの処理
+    image_url = None
+    if profile and profile.image_data and profile.image_data_type:
+        try:
+            # Base64エンコードして、データURIスキーマを作成
+            encoded_image = base64.b64encode(profile.image_data).decode('utf-8')
+            image_url = f"data:{profile.image_data_type};base64,{encoded_image}"
+            print(f"画像データを処理しました: サイズ={len(profile.image_data)}バイト, タイプ={profile.image_data_type}")
+        except Exception as e:
+            print(f"画像データの処理中にエラーが発生: {str(e)}")
+            image_url = None
+
     # 経験・実績のダミーデータ
     experiences = [
         {
@@ -442,7 +480,7 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         skills=user_skills,
         experiences=experiences,
         description=profile.pr if profile else None,
-        imageUrl=None,  # 画像URLはまだ実装されていないため、None
+        imageUrl=image_url,
         welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
     )
 
@@ -552,6 +590,16 @@ async def search_users(query: str = "", db: Session = Depends(get_db)):
         profile = user.profile
         user_skills = [ps.skill.name for ps in user.posted_skills]
         
+        # 画像データの処理
+        image_url = None
+        if profile and profile.image_data and profile.image_data_type:
+            try:
+                encoded_image = base64.b64encode(profile.image_data).decode('utf-8')
+                image_url = f"data:{profile.image_data_type};base64,{encoded_image}"
+            except Exception as e:
+                print(f"画像データの処理中にエラーが発生: {str(e)}")
+                image_url = None
+        
         results.append(UserSearchResponse(
             id=user.id,
             name=user.name,
@@ -559,7 +607,7 @@ async def search_users(query: str = "", db: Session = Depends(get_db)):
             yearsOfService=profile.career if profile else 0,
             skills=user_skills,
             description=profile.pr if profile else None,
-            imageUrl=None,
+            imageUrl=image_url,
             welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
             similarity_score=0.0  # 仮の値
         ))
@@ -588,6 +636,16 @@ async def search_by_skill(skill_name: str, db: Session = Depends(get_db)):
         profile = user.profile
         user_skills = [ps.skill.name for ps in user.posted_skills]
         
+        # 画像データの処理
+        image_url = None
+        if profile and profile.image_data and profile.image_data_type:
+            try:
+                encoded_image = base64.b64encode(profile.image_data).decode('utf-8')
+                image_url = f"data:{profile.image_data_type};base64,{encoded_image}"
+            except Exception as e:
+                print(f"画像データの処理中にエラーが発生: {str(e)}")
+                image_url = None
+        
         results.append(UserSearchResponse(
             id=user.id,
             name=user.name,
@@ -595,7 +653,7 @@ async def search_by_skill(skill_name: str, db: Session = Depends(get_db)):
             yearsOfService=profile.career if profile else 0,
             skills=user_skills,
             description=profile.pr if profile else None,
-            imageUrl=None,
+            imageUrl=image_url,
             welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
             similarity_score=0.0  # 仮の値
         ))
