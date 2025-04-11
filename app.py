@@ -49,6 +49,7 @@ class UserResponse(BaseModel):
     skills: List[str]
     description: str
     joinForm: str
+    welcome_level: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -103,6 +104,23 @@ class UserDetailResponse(BaseModel):
     experiences: List[Dict[str, str]]
     description: Optional[str] = None
     imageUrl: Optional[str] = None
+    welcome_level: Optional[str] = None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# ユーザー検索のレスポンスモデル
+class UserSearchResponse(BaseModel):
+    id: int
+    name: str
+    department: str
+    yearsOfService: int
+    skills: List[str]
+    description: Optional[str] = None
+    imageUrl: Optional[str] = None
+    welcome_level: Optional[str] = None
+    similarity_score: Optional[float] = None
 
     model_config = {
         "from_attributes": True
@@ -132,6 +150,7 @@ def read_skill(skill_name: str):
             .options(
                 joinedload(DBUser.profile).joinedload(Profile.department),
                 joinedload(DBUser.profile).joinedload(Profile.join_form),
+                joinedload(DBUser.profile).joinedload(Profile.welcome_level),
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
             .filter(PostSkill.skill_id == skill.skill_id)
@@ -162,7 +181,8 @@ def read_skill(skill_name: str):
                 yearsOfService=profile.career if profile else 0,
                 skills=user_skills,
                 description=profile.pr if profile else "",
-                joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
+                joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
             )
             users.append(user_response.model_dump())
 
@@ -320,6 +340,7 @@ def read_department(department_name: str):
             .options(
                 joinedload(DBUser.profile).joinedload(Profile.department),
                 joinedload(DBUser.profile).joinedload(Profile.join_form),
+                joinedload(DBUser.profile).joinedload(Profile.welcome_level),
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
             .filter(DBDepartment.id == department.id)
@@ -350,7 +371,8 @@ def read_department(department_name: str):
                 yearsOfService=profile.career if profile else 0,
                 skills=user_skills,
                 description=profile.pr if profile else "",
-                joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
+                joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
             )
             users.append(user_response.model_dump())
 
@@ -385,6 +407,7 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         .options(
             joinedload(DBUser.profile).joinedload(Profile.department),
             joinedload(DBUser.profile).joinedload(Profile.join_form),
+            joinedload(DBUser.profile).joinedload(Profile.welcome_level),
             joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
         )
         .filter(DBUser.id == user_id)
@@ -419,7 +442,8 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         skills=user_skills,
         experiences=experiences,
         description=profile.pr if profile else None,
-        imageUrl=None  # 画像URLはまだ実装されていないため、None
+        imageUrl=None,  # 画像URLはまだ実装されていないため、None
+        welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
     )
 
 # ブックマーク追加API
@@ -508,6 +532,75 @@ def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = D
     ).first()
     
     return {"is_bookmarked": bookmark is not None}
+
+@app.get("/search/users", response_model=List[UserSearchResponse])
+async def search_users(query: str = "", db: Session = Depends(get_db)):
+    users = (
+        db.query(DBUser)
+        .join(Profile, DBUser.id == Profile.user_id)
+        .join(DBDepartment, Profile.department_id == DBDepartment.id)
+        .options(
+            joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(DBUser.profile).joinedload(Profile.welcome_level),
+            joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
+        )
+        .all()
+    )
+
+    results = []
+    for user in users:
+        profile = user.profile
+        user_skills = [ps.skill.name for ps in user.posted_skills]
+        
+        results.append(UserSearchResponse(
+            id=user.id,
+            name=user.name,
+            department=profile.department.name if profile and profile.department else "未所属",
+            yearsOfService=profile.career if profile else 0,
+            skills=user_skills,
+            description=profile.pr if profile else None,
+            imageUrl=None,
+            welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
+            similarity_score=0.0  # 仮の値
+        ))
+
+    return results
+
+@app.get("/search/skill", response_model=List[UserSearchResponse])
+async def search_by_skill(skill_name: str, db: Session = Depends(get_db)):
+    users = (
+        db.query(DBUser)
+        .join(PostSkill, DBUser.id == PostSkill.user_id)
+        .join(Skill, PostSkill.skill_id == Skill.id)
+        .join(Profile, DBUser.id == Profile.user_id)
+        .join(DBDepartment, Profile.department_id == DBDepartment.id)
+        .options(
+            joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(DBUser.profile).joinedload(Profile.welcome_level),
+            joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
+        )
+        .filter(Skill.name == skill_name)
+        .all()
+    )
+
+    results = []
+    for user in users:
+        profile = user.profile
+        user_skills = [ps.skill.name for ps in user.posted_skills]
+        
+        results.append(UserSearchResponse(
+            id=user.id,
+            name=user.name,
+            department=profile.department.name if profile and profile.department else "未所属",
+            yearsOfService=profile.career if profile else 0,
+            skills=user_skills,
+            description=profile.pr if profile else None,
+            imageUrl=None,
+            welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None,
+            similarity_score=0.0  # 仮の値
+        ))
+
+    return results
 
 def signal_handler(sig, frame):
     print("\nサーバーを停止します...")

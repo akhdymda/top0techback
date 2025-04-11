@@ -141,7 +141,8 @@ def drop_and_create_tables():
                     join_form_id INTEGER, 
                     welcome_level_id INTEGER, 
                     career INTEGER, 
-                    image_url VARCHAR(255), 
+                    image_data BLOB, 
+                    image_data_type VARCHAR(100), 
                     history TEXT, 
                     pr TEXT, 
                     total_point INTEGER DEFAULT 0, 
@@ -277,7 +278,27 @@ def seed_data():
         welcome_levels = [
             WelcomeLevel(level_name="いつでも相談歓迎"),
             WelcomeLevel(level_name="相談歓迎"),
-            WelcomeLevel(level_name="今は対応不可")
+            WelcomeLevel(level_name="今は対応不可"),
+            WelcomeLevel(level_name="相談歓迎！一緒に解決策を見つけましょう"),
+            WelcomeLevel(level_name="初心者ですが、お話なら全然聞きます！"),
+            WelcomeLevel(level_name="仲間づくり大歓迎！一緒に成長しましょう"),
+            WelcomeLevel(level_name="本好きなので、読書会歓迎です"),
+            WelcomeLevel(level_name="キャリアについて一緒に考えましょう"),
+            WelcomeLevel(level_name="気軽にお話しましょう！"),
+            WelcomeLevel(level_name="新しい視点を一緒に見つけましょう"),
+            WelcomeLevel(level_name="失敗談から学んだことをシェアできます"),
+            WelcomeLevel(level_name="プロジェクトの相談、いつでもどうぞ"),
+            WelcomeLevel(level_name="チーム作りについて話し合いましょう"),
+            WelcomeLevel(level_name="リーダーシップについて語り合いましょう"),
+            WelcomeLevel(level_name="業界の最新トレンドについて話しましょう"),
+            WelcomeLevel(level_name="スキルアップの方法を共有します"),
+            WelcomeLevel(level_name="メンタリングを通じて共に成長しましょう"),
+            WelcomeLevel(level_name="アイデアを出し合って新しい解決策を"),
+            WelcomeLevel(level_name="コミュニケーションスキルを高めましょう"),
+            WelcomeLevel(level_name="目標達成のサポートをさせていただきます"),
+            WelcomeLevel(level_name="モチベーション維持のコツを共有します"),
+            WelcomeLevel(level_name="ワークライフバランスについて話しましょう"),
+            WelcomeLevel(level_name="キャリアプランニングのアドバイスができます")
         ]
         db.add_all(welcome_levels)
         db.commit()

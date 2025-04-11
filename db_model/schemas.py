@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
+from fastapi import UploadFile
 
 # ユーザー関連スキーマ
 class UserBase(BaseModel):
@@ -126,7 +127,8 @@ class ProfileBase(BaseModel):
     join_form_id: Optional[int] = None
     welcome_level_id: Optional[int] = None
     career: Optional[int] = None
-    image_url: Optional[str] = None
+    image_data: Optional[bytes] = None
+    image_data_type: Optional[str] = None
     history: Optional[str] = None
     pr: Optional[str] = None
     total_point: int = 0

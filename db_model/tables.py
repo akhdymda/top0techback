@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, Date, ForeignKey, UniqueConstraint, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db_connection.connect_MySQL import Base
@@ -98,7 +98,8 @@ class Profile(Base):
     join_form_id = Column(Integer, ForeignKey("join_forms.id"), nullable=True)
     welcome_level_id = Column(Integer, ForeignKey("welcome_levels.id"), nullable=True)
     career = Column(Integer, nullable=True) # 社歴
-    image_url = Column(String(255), nullable=True) # プロフィール画像
+    image_data = Column(LargeBinary, nullable=True) # プロフィール画像データ
+    image_data_type = Column(String(100), nullable=True) # プロフィール画像データの形式
     history = Column(Text, nullable=True) # 経歴
     pr = Column(Text, nullable=True) # 自己PR
     total_point = Column(Integer, default=0) # 付与ポイント数合計

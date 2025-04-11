@@ -4,4 +4,4 @@ __pycache__/
 *.db
 DigiCertGlobalRootG2.crt.pem
 backend_venv/
-
+seed_data.py
