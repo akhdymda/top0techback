@@ -7,8 +7,9 @@ from typing import List
 from db_connection.connect_MySQL import SessionLocal, get_db
 from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile, Bookmark
 from sqlalchemy.orm import joinedload, Session
-from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkCreate
+from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkCreate
 from db_connection.embedding import get_text_embedding
+import base64
 
 app = FastAPI()
 
@@ -42,6 +43,7 @@ def read_skill(skill_name: str):
             .options(
                 joinedload(DBUser.profile).joinedload(Profile.department),
                 joinedload(DBUser.profile).joinedload(Profile.join_form),
+                joinedload(DBUser.profile).joinedload(Profile.welcome_level),
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
             .filter(PostSkill.skill_id == skill.skill_id)
@@ -59,6 +61,13 @@ def read_skill(skill_name: str):
             user_skills = [ps.skill.name for ps in user.posted_skills]
             profile = user.profile
             
+            # 画像データをBase64エンコード
+            image_data = None
+            image_data_type = None
+            if profile and profile.image_data:
+                image_data = base64.b64encode(profile.image_data).decode('utf-8')
+                image_data_type = profile.image_data_type
+            
             # デバッグ情報を追加
             print(f"Processing user: {user.name} (ID: {user.id})")
             print(f"Department: {profile.department.name if profile and profile.department else '未所属'}")
@@ -73,7 +82,10 @@ def read_skill(skill_name: str):
                     yearsOfService=profile.career if profile else 0,
                     skills=user_skills,
                     description=profile.pr if profile else "",
-                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
+                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+                    welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else "未設定",
+                    image_data=image_data,
+                    image_data_type=image_data_type
                 )
             )
 
@@ -143,6 +155,13 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                         if department:
                             department_id = department.id
                             department_name = department.name
+                    
+                    # 画像データをBase64エンコード
+                    image_data = None
+                    image_data_type = None
+                    if user.profile and user.profile.image_data:
+                        image_data = base64.b64encode(user.profile.image_data).decode('utf-8')
+                        image_data_type = user.profile.image_data_type
                             
                     # 検索結果を作成
                     search_result = SearchResult(
@@ -150,10 +169,13 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                         user_name=user.name or "名前なし",
                         skill_id=skill.skill_id,
                         skill_name=skill.name,
+                        joinForm=user.profile.join_form.name if user.profile and user.profile.join_form else "未設定",
                         description=None,
                         department_id=department_id,
                         department_name=department_name,
-                        similarity_score=result.get("score", 0.0)
+                        similarity_score=result.get("score", 0.0),
+                        image_data=image_data,
+                        image_data_type=image_data_type
                     )
                     search_results.append(search_result)
                 
@@ -181,16 +203,26 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                                 department_id = department.id
                                 department_name = department.name
                         
+                        # 画像データをBase64エンコード
+                        image_data = None
+                        image_data_type = None
+                        if user.profile and user.profile.image_data:
+                            image_data = base64.b64encode(user.profile.image_data).decode('utf-8')
+                            image_data_type = user.profile.image_data_type
+                        
                         # 検索結果を作成
                         search_result = SearchResult(
                             user_id=user.id,
                             user_name=user.name or "名前なし",
                             skill_id=skill.skill_id,
                             skill_name=skill.name,
+                            joinForm=user.profile.join_form.name if user.profile and user.profile.join_form else "未設定",
                             description=None,
                             department_id=department_id,
                             department_name=department_name,
-                            similarity_score=result.get("score", 0.0)
+                            similarity_score=result.get("score", 0.0),
+                            image_data=image_data,
+                            image_data_type=image_data_type
                         )
                         search_results.append(search_result)
         
@@ -241,6 +273,13 @@ def read_department(department_name: str):
             user_skills = [ps.skill.name for ps in user.posted_skills]
             profile = user.profile
             
+            # 画像データをBase64エンコード
+            image_data = None
+            image_data_type = None
+            if profile and profile.image_data:
+                image_data = base64.b64encode(profile.image_data).decode('utf-8')
+                image_data_type = profile.image_data_type
+            
             # デバッグ情報を追加
             print(f"Processing user: {user.name} (ID: {user.id})")
             print(f"Department: {department_name}")
@@ -251,11 +290,14 @@ def read_department(department_name: str):
                 UserResponse(
                     id=user.id,
                     name=user.name,
-                    department=department_name,
+                    department=profile.department.name if profile and profile.department else "未所属",
                     yearsOfService=profile.career if profile else 0,
                     skills=user_skills,
                     description=profile.pr if profile else "",
-                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
+                    joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+                    welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else "未設定",
+                    image_data=image_data,
+                    image_data_type=image_data_type
                 )
             )
 
@@ -281,46 +323,59 @@ def read_root():
     return {"message": "Welcome to Chotto API"}
 
 # ユーザー詳細取得API
-@app.get("/user/{user_id}", response_model=UserResponse)
-def read_user(user_id: int):
-    db = SessionLocal()
-    try:
-        # ユーザーを検索（関連するデータも一緒に取得）
-        user = (
-            db.query(DBUser)
-            .join(Profile, DBUser.id == Profile.user_id)
-            .join(DBDepartment, Profile.department_id == DBDepartment.id)
-            .options(
-                joinedload(DBUser.profile).joinedload(Profile.department),
-                joinedload(DBUser.profile).joinedload(Profile.join_form),
-                joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
-            )
-            .filter(DBUser.id == user_id)
-            .first()
+@app.get("/users/{user_id}", response_model=UserDetailResponse)
+def get_user_detail(user_id: int, db: Session = Depends(get_db)):
+    user = (
+        db.query(DBUser)
+        .join(Profile, DBUser.id == Profile.user_id)
+        .join(DBDepartment, Profile.department_id == DBDepartment.id)
+        .options(
+            joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(DBUser.profile).joinedload(Profile.join_form),
+            joinedload(DBUser.profile).joinedload(Profile.welcome_level),
+            joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
         )
+        .filter(DBUser.id == user_id)
+        .first()
+    )
 
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # ユーザーのスキルを取得
-        skills = [post_skill.skill.name for post_skill in user.posted_skills]
-        profile = user.profile
+    profile = user.profile
+    user_skills = [ps.skill.name for ps in user.posted_skills]
 
-        # デバッグ情報を出力
-        print(f"Found user: {user.name} (ID: {user.id})")
-        print(f"Department: {profile.department.name if profile and profile.department else '未所属'}")
-        print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-        print(f"Skills: {skills}")
+    # 画像データをBase64エンコード
+    image_data = None
+    image_data_type = None
+    if user.profile and user.profile.image_data:
+        image_data = base64.b64encode(user.profile.image_data).decode('utf-8')
+        image_data_type = user.profile.image_data_type
+                        
 
-        return UserResponse(
-            id=user.id,
-            name=user.name,
-            department=profile.department.name if profile and profile.department else "未所属",
-            yearsOfService=profile.career if profile else 0,
-            skills=skills,
-            description=profile.pr if profile else "",
-            joinForm=profile.join_form.name if profile and profile.join_form else "未設定"
-        )
+    # 経験・実績のダミーデータ
+    experiences = [
+        {
+            "title": "大規模プロジェクトのマネジメント",
+            "description": "100人規模のチームで新規サービスの立ち上げを担当。スケジュール管理からリスク管理まで一貫して対応。"
+        },
+        {
+            "title": "マーケティング戦略の立案と実行",
+            "description": "複数の新規サービスのマーケティング戦略を担当。ユーザー獲得からブランディングまで幅広く対応。"
+        }
+    ]
 
-    finally:
-        db.close()
+    return UserDetailResponse(
+        id=user.id,
+        name=user.name,
+        department=profile.department.name if profile and profile.department else "未所属",
+        position="マーケティング部 / プロジェクトマネージャー",  # ダミーデータ
+        yearsOfService=profile.career if profile else 0,
+        joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+        skills=user_skills,
+        experiences=experiences,
+        description=profile.pr if profile else None,
+        image_data=image_data,
+        image_data_type=image_data_type,
+        welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
+    )
