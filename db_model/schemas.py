@@ -234,8 +234,14 @@ class BookmarkCreate(BookmarkBase):
 
 class BookmarkResponse(BookmarkBase):
     id: int
-    user_id: int
-    bookmarked_user_id: int
+    user_id: int  # これはbookmarking_user_idと同じ意味合いで使われている
+    name: Optional[str] = None
+    department: Optional[str] = None
+    yearsOfService: Optional[int] = None
+    skills: Optional[List[str]] = None
+    description: Optional[str] = None
+    joinForm: Optional[str] = None
+    welcome_level: Optional[str] = None
     created_at: datetime
 
     class Config:

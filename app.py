@@ -1,14 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from db_connection.connect_Pinecone import search_similar_skills
-from pydantic import BaseModel
 from typing import List
 from db_connection.connect_MySQL import SessionLocal, get_db
 from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile, Bookmark
 from sqlalchemy.orm import joinedload, Session
-from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkCreate
-from db_connection.embedding import get_text_embedding
+from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkListResponse
 import base64
 
 app = FastAPI()
@@ -379,3 +376,93 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         image_data_type=image_data_type,
         welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
     )
+
+# ブックマーク追加API
+@app.post("/bookmarks/{user_id}", response_model=BookmarkResponse)
+def create_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    # すでにブックマークされているかチェック
+    existing_bookmark = db.query(Bookmark).filter(
+        Bookmark.bookmarking_user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+    
+    if existing_bookmark:
+        raise HTTPException(status_code=400, detail="Bookmark already exists")
+
+    # 新しいブックマークを作成
+    bookmark = Bookmark(
+        bookmarking_user_id=user_id,
+        bookmarked_user_id=bookmarked_user_id
+    )
+    db.add(bookmark)
+    db.commit()
+    db.refresh(bookmark)
+
+    return bookmark
+
+# ブックマーク削除API
+@app.delete("/bookmarks/{user_id}", response_model=BookmarkResponse)
+def delete_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    bookmark = db.query(Bookmark).filter(
+        Bookmark.bookmarking_user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+
+    if not bookmark:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    
+    db.delete(bookmark)
+    db.commit()
+    
+    return {"message": "Bookmark deleted successfully"}
+
+# ブックマーク一覧取得API
+@app.get("/bookmarks/{user_id}", response_model=BookmarkListResponse)
+def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
+    bookmarks = (
+        db.query(Bookmark)
+        .filter(Bookmark.bookmarking_user_id == user_id)
+        .options(
+            joinedload(Bookmark.bookmarked).joinedload(DBUser.profile).joinedload(Profile.department),
+            joinedload(Bookmark.bookmarked).joinedload(DBUser.profile).joinedload(Profile.join_form),
+            joinedload(Bookmark.bookmarked).joinedload(DBUser.profile).joinedload(Profile.welcome_level),
+            joinedload(Bookmark.bookmarked).joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
+        )
+        .all()
+    )
+
+    Bookmark_list = []
+    for bookmark in bookmarks:
+        user = bookmark.bookmarked
+        profile = user.profile
+        user_skills = [ps.skill.name for ps in user.posted_skills]
+
+        Bookmark_list.append(
+            BookmarkResponse(
+                id=bookmark.id,
+                user_id=bookmark.bookmarking_user_id,
+                bookmarking_user_id=bookmark.bookmarking_user_id,
+                bookmarked_user_id=user.id,
+                name=user.name,
+                department=profile.department.name if profile and profile.department else "未所属",
+                yearsOfService=profile.career if profile else 0,
+                skills=user_skills,
+                description=profile.pr if profile else "",
+                joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
+                welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else "未設定",
+                created_at=bookmark.created_at
+            ))
+
+    return BookmarkListResponse(bookmarks=Bookmark_list, total=len(Bookmark_list))
+
+# ブックマーク状態確認API
+@app.get("/bookmarks/{user_id}/{bookmarked_user_id}/status")
+def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+    bookmark = db.query(Bookmark).filter(
+        Bookmark.bookmarking_user_id == user_id,
+        Bookmark.bookmarked_user_id == bookmarked_user_id
+    ).first()
+    
+    return {"is_bookmarked": bookmark is not None}
+    
+    
