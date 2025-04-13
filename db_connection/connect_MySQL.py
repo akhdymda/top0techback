@@ -3,6 +3,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import logging
+
+# ロギング設定
+logger = logging.getLogger("db")
 
 # 環境変数の読み込み　
 base_path = Path(__file__).parents[1]  # backendディレクトリへのパス
@@ -30,9 +34,12 @@ engine = create_engine(
             "ssl_ca": ssl_cert
         }  
     },
-    echo=True,
+    echo=False,  # SQLログを無効化（本番環境用）
     pool_pre_ping=True,
-    pool_recycle=3600
+    pool_recycle=3600,
+    pool_size=10,  # 同時接続数を制限
+    max_overflow=20,  # 最大オーバーフロー接続数
+    pool_timeout=30  # 接続タイムアウト
 )
 
 # セッションファクトリを作成
@@ -52,5 +59,4 @@ def get_db():
 # テーブル作成
 Base.metadata.create_all(engine)
 
-print("Current working directory:", os.getcwd())
-print("Certificate file exists:", os.path.exists('DigiCertGlobalRootG2.crt.pem'))
+logger.info("データベース接続が初期化されました")

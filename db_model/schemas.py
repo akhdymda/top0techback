@@ -242,6 +242,8 @@ class BookmarkResponse(BookmarkBase):
     description: Optional[str] = None
     joinForm: Optional[str] = None
     welcome_level: Optional[str] = None
+    image_data: Optional[str] = None  # Base64エンコードされた画像データ
+    image_data_type: Optional[str] = None  # 画像のMIMEタイプ
     created_at: datetime
 
     class Config:
