@@ -24,3 +24,7 @@ pinecone-client==3.0.2
 langchain==0.3.23
 langchain-openai==0.3.12
 langchain-community==0.3.10
+# キャッシュ管理用パッケージ
+cachetools==5.3.2
+# 非同期キャッシュ用パッケージ
+aiocache==0.12.1

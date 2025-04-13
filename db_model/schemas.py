@@ -24,12 +24,32 @@ class UserResponse(BaseModel):
     skills: List[str]
     description: str
     joinForm: str  # 入社形態を追加
+    welcome_level: Optional[str] = None
+    image_data: Optional[str] = None  # Base64エンコードされた画像データ
+    image_data_type: Optional[str] = None  # 画像のMIMEタイプ
     class Config:
         from_attributes = True
 
-
     class Config:
         orm_mode = True
+
+# ユーザー詳細のレスポンスモデル
+class UserDetailResponse(BaseModel):
+    id: int
+    name: str
+    department: str
+    position: str
+    yearsOfService: int
+    joinForm: str
+    skills: List[str]
+    experiences: List[Dict[str, str]]
+    description: Optional[str] = None
+    image_data: Optional[str] = None  # Base64エンコードされた画像データ
+    image_data_type: Optional[str] = None  # 画像のMIMEタイプ
+    welcome_level: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 # 部署関連スキーマ
 class DepartmentBase(BaseModel):
@@ -214,8 +234,25 @@ class BookmarkCreate(BookmarkBase):
 
 class BookmarkResponse(BookmarkBase):
     id: int
-    bookmark_date: date
+    user_id: int  # これはbookmarking_user_idと同じ意味合いで使われている
+    name: Optional[str] = None
+    department: Optional[str] = None
+    yearsOfService: Optional[int] = None
+    skills: Optional[List[str]] = None
+    description: Optional[str] = None
+    joinForm: Optional[str] = None
+    welcome_level: Optional[str] = None
+    image_data: Optional[str] = None  # Base64エンコードされた画像データ
+    image_data_type: Optional[str] = None  # 画像のMIMEタイプ
     created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+# ブックマーク一覧のレスポンスモデル
+class BookmarkListResponse(BaseModel):
+    bookmarks: List[BookmarkResponse]
+    total: int
 
     class Config:
         orm_mode = True
@@ -228,14 +265,30 @@ class SearchQuery(BaseModel):
 class SearchResult(BaseModel):
     user_id: int
     user_name: str
-    skill_id: Optional[int] = None
-    skill_name: Optional[str] = None
-    joinForm: Optional[str] = None
+    skill_id: int
+    skill_name: str
+    joinForm: str
     description: Optional[str] = None
     department_id: Optional[int] = None
     department_name: Optional[str] = None
     similarity_score: float
+    image_data: Optional[str] = None  # Base64エンコードされた画像データ
+    image_data_type: Optional[str] = None  # 画像のMIMEタイプ
+    class Config:
+        from_attributes = True
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     total: int 
+
+# ログインスキーマの追加
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    success: bool
+    message: str

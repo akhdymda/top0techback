@@ -5,3 +5,4 @@ __pycache__/
 DigiCertGlobalRootG2.crt.pem
 backend_venv/
 seed_data.py
+image_upload_utility.py

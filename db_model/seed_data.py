@@ -7,6 +7,7 @@ import numpy as np
 import openai
 from dotenv import load_dotenv
 from sqlalchemy import text
+import bcrypt
 
 load_dotenv()
 
@@ -224,7 +225,23 @@ def drop_and_create_tables():
 
 # パスワードハッシュ化のヘルパー関数
 def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+    # パスワードをバイト文字列に変換
+    password_bytes = password.encode('utf-8')
+    # ソルトを生成
+    salt = bcrypt.gensalt()
+    # パスワードをハッシュ化
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    # バイト文字列をデコードして返す
+    return hashed.decode('utf-8')
+
+# パスワードを検証する関数（NextOAuthとの連携用）
+def verify_password(plain_password, hashed_password):
+    # 平文パスワードをバイト文字列に変換
+    password_bytes = plain_password.encode('utf-8')
+    # ハッシュ済みパスワードをバイト文字列に変換
+    hashed_bytes = hashed_password.encode('utf-8')
+    # bcryptでパスワードを検証
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 # ダミーエンベディングを生成（実際には適切なエンベディングモデルを使用すべき）
 def create_dummy_embedding(text, dimension=384):
@@ -397,36 +414,36 @@ def seed_data():
         
         # プロフィールデータ
         profiles = [
-            Profile(user_id=1, department_id=1, join_form_id=1, welcome_level_id=1, career=5, history="2018年入社", pr="Pythonが得意です", total_point=25),
-            Profile(user_id=2, department_id=2, join_form_id=2, welcome_level_id=2, career=3, history="2020年入社", pr="営業経験豊富です", total_point=15 ),
+            Profile(user_id=1, department_id=1, join_form_id=1, welcome_level_id=10, career=5, history="2018年入社", pr="Pythonが得意です", total_point=25),
+            Profile(user_id=2, department_id=2, join_form_id=2, welcome_level_id=13, career=3, history="2020年入社", pr="営業経験豊富です", total_point=15 ),
             Profile(user_id=3, department_id=3, join_form_id=1, welcome_level_id=3, career=7, history="2016年入社", pr="人材採用を担当", total_point=30 ),
-            Profile(user_id=4, department_id=4, join_form_id=3, welcome_level_id=3, career=2, history="2021年入社", pr="会計資格保持", total_point=10 ),
+            Profile(user_id=4, department_id=4, join_form_id=3, welcome_level_id=22, career=2, history="2021年入社", pr="会計資格保持", total_point=10 ),
             Profile(user_id=5, department_id=5, join_form_id=1, welcome_level_id=1, career=4, history="2019年入社", pr="プロジェクト企画が得意", total_point=20 ),
-            Profile(user_id=6, department_id=6, join_form_id=2, welcome_level_id=1, career=6, history="2017年入社", pr="デザインが得意です", total_point=18 ),
+            Profile(user_id=6, department_id=6, join_form_id=2, welcome_level_id=21, career=6, history="2017年入社", pr="デザインが得意です", total_point=18 ),
             Profile(user_id=7, department_id=7, join_form_id=3, welcome_level_id=2, career=4, history="2019年入社", pr="プロジェクトマネジメント経験豊富", total_point=22 ),
-            Profile(user_id=8, department_id=8, join_form_id=1, welcome_level_id=3, career=5, history="2018年入社", pr="データ分析が専門です",  total_point=19 ),
-            Profile(user_id=9, department_id=9, join_form_id=2, welcome_level_id=1, career=3, history="2020年入社", pr="マーケティング戦略立案が得意", total_point=17 ),
+            Profile(user_id=8, department_id=8, join_form_id=1, welcome_level_id=20, career=5, history="2018年入社", pr="データ分析が専門です",  total_point=19 ),
+            Profile(user_id=9, department_id=9, join_form_id=2, welcome_level_id=4, career=3, history="2020年入社", pr="マーケティング戦略立案が得意", total_point=17 ),
             Profile(user_id=10, department_id=10, join_form_id=3, welcome_level_id=2, career=7, history="2016年入社", pr="システム開発の経験があります", total_point=25),
-            Profile(user_id=11, department_id=1, join_form_id=1, welcome_level_id=1, career=2, history="2021年入社", pr="SNS運用が得意です", total_point=12),
-            Profile(user_id=12, department_id=2, join_form_id=2, welcome_level_id=3, career=8, history="2015年入社", pr="営業マネジメント経験があります", total_point=30),
+            Profile(user_id=11, department_id=1, join_form_id=1, welcome_level_id=9, career=2, history="2021年入社", pr="SNS運用が得意です", total_point=12),
+            Profile(user_id=12, department_id=2, join_form_id=2, welcome_level_id=14, career=8, history="2015年入社", pr="営業マネジメント経験があります", total_point=30),
             Profile(user_id=13, department_id=3, join_form_id=3, welcome_level_id=2, career=6, history="2017年入社", pr="コンテンツ制作が専門です", total_point=20),
-            Profile(user_id=14, department_id=4, join_form_id=1, welcome_level_id=1, career=4, history="2019年入社", pr="広告運用のスペシャリストです", total_point=18),
-            Profile(user_id=15, department_id=5, join_form_id=2, welcome_level_id=3, career=5, history="2018年入社", pr="SEO対策が得意です", total_point=22),
-            Profile(user_id=16, department_id=6, join_form_id=3, welcome_level_id=2, career=3, history="2020年入社", pr="動画編集の経験があります", total_point=15),
-            Profile(user_id=17, department_id=7, join_form_id=1, welcome_level_id=1, career=7, history="2016年入社", pr="ブランディング戦略が専門です", total_point=28),
-            Profile(user_id=18, department_id=8, join_form_id=2, welcome_level_id=3, career=4, history="2019年入社", pr="イベント企画が得意です", total_point=19),
-            Profile(user_id=19, department_id=9, join_form_id=3, welcome_level_id=2, career=5, history="2018年入社", pr="PR活動の経験があります", total_point=21),
+            Profile(user_id=14, department_id=4, join_form_id=1, welcome_level_id=15, career=4, history="2019年入社", pr="広告運用のスペシャリストです", total_point=18),
+            Profile(user_id=15, department_id=5, join_form_id=2, welcome_level_id=8, career=5, history="2018年入社", pr="SEO対策が得意です", total_point=22),
+            Profile(user_id=16, department_id=6, join_form_id=3, welcome_level_id=12, career=3, history="2020年入社", pr="動画編集の経験があります", total_point=15),
+            Profile(user_id=17, department_id=7, join_form_id=1, welcome_level_id=23, career=7, history="2016年入社", pr="ブランディング戦略が専門です", total_point=28),
+            Profile(user_id=18, department_id=8, join_form_id=2, welcome_level_id=16, career=4, history="2019年入社", pr="イベント企画が得意です", total_point=19),
+            Profile(user_id=19, department_id=9, join_form_id=3, welcome_level_id=6, career=5, history="2018年入社", pr="PR活動の経験があります", total_point=21),
             Profile(user_id=20, department_id=10, join_form_id=1, welcome_level_id=1, career=6, history="2017年入社", pr="市場調査が専門です", total_point=23),
             Profile(user_id=21, department_id=1, join_form_id=2, welcome_level_id=2, career=5, history="2018年入社", pr="メールマーケティングが得意", total_point=19),
-            Profile(user_id=22, department_id=2, join_form_id=3, welcome_level_id=1, career=6, history="2017年入社", pr="UXリサーチ経験あり", total_point=24),
+            Profile(user_id=22, department_id=2, join_form_id=3, welcome_level_id=7, career=6, history="2017年入社", pr="UXリサーチ経験あり", total_point=24),
             Profile(user_id=23, department_id=3, join_form_id=1, welcome_level_id=3, career=2, history="2021年入社", pr="AI導入プロジェクトを担当", total_point=16),
             Profile(user_id=24, department_id=4, join_form_id=2, welcome_level_id=1, career=7, history="2016年入社", pr="統計解析が得意", total_point=27),
-            Profile(user_id=25, department_id=5, join_form_id=3, welcome_level_id=2, career=3, history="2020年入社", pr="SEOコンテンツの制作実績多数", total_point=18),
+            Profile(user_id=25, department_id=5, join_form_id=3, welcome_level_id=19, career=3, history="2020年入社", pr="SEOコンテンツの制作実績多数", total_point=18),
             Profile(user_id=26, department_id=6, join_form_id=1, welcome_level_id=2, career=4, history="2019年入社", pr="D2Cブランドの立ち上げ経験あり", total_point=22),
-            Profile(user_id=27, department_id=7, join_form_id=2, welcome_level_id=3, career=5, history="2018年入社", pr="インフルエンサーマーケ経験あり", total_point=20),
+            Profile(user_id=27, department_id=7, join_form_id=2, welcome_level_id=18, career=5, history="2018年入社", pr="インフルエンサーマーケ経験あり", total_point=20),
             Profile(user_id=28, department_id=8, join_form_id=3, welcome_level_id=1, career=6, history="2017年入社", pr="Pythonでのデータ分析が得意", total_point=26),
-            Profile(user_id=29, department_id=9, join_form_id=1, welcome_level_id=2, career=2, history="2021年入社", pr="コンテンツ企画に自信あり", total_point=14),
-            Profile(user_id=30, department_id=10, join_form_id=2, welcome_level_id=3, career=7, history="2016年入社", pr="広告クリエイティブの設計者", total_point=30),
+            Profile(user_id=29, department_id=9, join_form_id=1, welcome_level_id=5, career=2, history="2021年入社", pr="コンテンツ企画に自信あり", total_point=14),
+            Profile(user_id=30, department_id=10, join_form_id=2, welcome_level_id=17, career=7, history="2016年入社", pr="広告クリエイティブの設計者", total_point=30),
         ]
         db.add_all(profiles)
         db.commit()
