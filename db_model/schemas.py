@@ -268,6 +268,7 @@ class SearchResult(BaseModel):
     skill_id: int
     skill_name: str
     joinForm: str
+    welcome_level: Optional[str] = None
     description: Optional[str] = None
     department_id: Optional[int] = None
     department_name: Optional[str] = None

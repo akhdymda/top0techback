@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from db_connection.connect_Pinecone import search_similar_skills
 from typing import List
@@ -203,6 +203,7 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                         skill_id=skill.skill_id,
                         skill_name=skill.name,
                         joinForm=user.profile.join_form.name if user.profile and user.profile.join_form else "未設定",
+                        welcome_level=user.profile.welcome_level.level_name if user.profile and user.profile.welcome_level else "未設定",
                         description=None,
                         department_id=department_id,
                         department_name=department_name,
@@ -250,6 +251,7 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                             skill_id=skill.skill_id,
                             skill_name=skill.name,
                             joinForm=user.profile.join_form.name if user.profile and user.profile.join_form else "未設定",
+                            welcome_level=user.profile.welcome_level.level_name if user.profile and user.profile.welcome_level else "未設定",
                             description=None,
                             department_id=department_id,
                             department_name=department_name,
@@ -520,25 +522,29 @@ async def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Sessi
     return {"is_bookmarked": bookmark is not None}
 
 # ログインAPI
-@app.post("/auth/login", response_model=LoginResponse)
-async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+@app.post("/auth/login")
+async def login(request: Request, db: Session = Depends(get_db)):
     """ユーザー認証を行い、認証情報を返す"""
-    user = db.query(DBUser).filter(DBUser.email == login_data.email).first()
+    data = await request.json()
+    email = data.get("email")
+    password = data.get("password")
     
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="メールアドレスとパスワードは必須です")
+    
+    user = db.query(DBUser).filter(DBUser.email == email).first()
     if not user:
         raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが正しくありません")
     
     # パスワードの検証
-    if not verify_password(login_data.password, user.password_hash):
+    if not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが正しくありません")
     
     # 認証成功
-    return LoginResponse(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        success=True,
-        message="認証に成功しました"
-    )
-    
-    
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "success": True,
+        "message": "認証に成功しました"
+    }
