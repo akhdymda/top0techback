@@ -4,6 +4,12 @@ from functools import lru_cache
 from pathlib import Path
 from pinecone import Pinecone, ServerlessSpec
 from db_connection.embedding import get_text_embedding
+import logging
+import time
+from cachetools import TTLCache, cached
+
+# ロギング設定
+logger = logging.getLogger("pinecone")
 
 # 環境変数の読み込み
 base_path = Path(__file__).parents[1]  # backendディレクトリへのパス
@@ -22,6 +28,9 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "text-embedding-ada-002")
 # Pineconeクライアントとインデックスのシングルトンインスタンス
 _pinecone_client = None
 _pinecone_index = None
+
+# 検索結果をキャッシュするためのTTLCache (1時間有効)
+search_cache = TTLCache(maxsize=100, ttl=3600)
 
 @lru_cache
 def get_pinecone_client():
@@ -52,15 +61,15 @@ def get_pinecone_client():
                     region="us-east-1"
                 )
             )
-            print(f"Pineconeインデックス '{PINECONE_INDEX_NAME}' を作成しました")
+            logger.info(f"Pineconeインデックス '{PINECONE_INDEX_NAME}' を作成しました")
         
         _pinecone_index = _pinecone_client.Index(PINECONE_INDEX_NAME)
-        print(f"Pineconeインデックス '{PINECONE_INDEX_NAME}' に接続しました")
+        logger.info(f"Pineconeインデックス '{PINECONE_INDEX_NAME}' に接続しました")
         
         return _pinecone_index
     
     except Exception as e:
-        print(f"Pinecone初期化エラー: {str(e)}")
+        logger.error(f"Pinecone初期化エラー: {str(e)}")
         import traceback
         traceback.print_exc()
         raise
@@ -96,16 +105,24 @@ def add_skill_to_pinecone(skill_id, skill_name, user_id=None, user_name=None):
             }]
         )
         
-        print(f"スキル '{skill_name}' (ID: {skill_id}) をPineconeに追加しました。")
+        logger.info(f"スキル '{skill_name}' (ID: {skill_id}) をPineconeに追加しました。")
+        
+        # キャッシュを更新
+        if hasattr(search_cache, 'clear'):
+            search_cache.clear()
+            
         return True
     except Exception as e:
-        print(f"スキル追加エラー: {str(e)}")
+        logger.error(f"スキル追加エラー: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
 
+# クエリと制限数をキーとしてキャッシュ
+@cached(cache=search_cache)
 def search_similar_skills(query, limit=5):
     """Pineconeを使用して類似したスキルを検索"""
+    start_time = time.time()
     try:
         index = get_pinecone_client()
         
@@ -131,10 +148,12 @@ def search_similar_skills(query, limit=5):
                 "score": match.score
             })
         
+        end_time = time.time()
+        logger.info(f"検索クエリ '{query}' の実行時間: {end_time - start_time:.2f}秒")
         return formatted_results
     
     except Exception as e:
-        print(f"検索エラー: {str(e)}")
+        logger.error(f"検索エラー: {str(e)}")
         import traceback
         traceback.print_exc()
         return [] 

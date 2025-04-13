@@ -7,6 +7,24 @@ from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department a
 from sqlalchemy.orm import joinedload, Session
 from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkListResponse, LoginRequest, LoginResponse
 import base64
+import bcrypt
+import asyncio
+from functools import lru_cache
+import logging
+from contextvars import ContextVar
+from fastapi.logger import logger as fastapi_logger
+from aiocache import cached, Cache
+from aiocache.serializers import PickleSerializer
+
+# ロギング設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger("app")
+
+# リクエストIDを追跡するためのコンテキスト変数
+request_id_context = ContextVar("request_id", default=None)
 
 app = FastAPI()
 
@@ -19,26 +37,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# リクエストIDミドルウェア
+@app.middleware("http")
+async def request_id_middleware(request, call_next):
+    import uuid
+    request_id = str(uuid.uuid4())
+    request_id_context.set(request_id)
+    response = await call_next(request)
+    return response
+
 # パスワードを検証する関数（NextOAuthとの連携用）
 def verify_password(plain_password, hashed_password):
-    # 平文パスワードをバイト文字列に変換
-    password_bytes = plain_password.encode('utf-8')
-    # ハッシュ済みパスワードをバイト文字列に変換
-    hashed_bytes = hashed_password.encode('utf-8')
-    # bcryptでパスワードを検証
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+    try:
+        # 平文パスワードをバイト文字列に変換
+        password_bytes = plain_password.encode('utf-8')
+        # ハッシュ済みパスワードをバイト文字列に変換
+        hashed_bytes = hashed_password.encode('utf-8')
+        # bcryptでパスワードを検証
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception as e:
+        logger.error(f"パスワード検証エラー: {e}")
+        return False
 
 # スキル検索API
 @app.get("/skills/{skill_name}", response_model=SkillResponse)
-def read_skill(skill_name: str):
+async def read_skill(skill_name: str):
+    logger.info(f"スキル検索 - {skill_name}")
     db = SessionLocal()
     try:
         # スキルを検索
         skill = db.query(SkillMaster).filter(SkillMaster.name == skill_name).first()
         if not skill:
+            logger.warning(f"スキル '{skill_name}' は見つかりませんでした")
             raise HTTPException(status_code=404, detail="Skill not found")
-
-        print(f"Found skill: {skill.name} (ID: {skill.skill_id})")
 
         # スキルを持つユーザーを取得
         users_with_skill = (
@@ -58,7 +89,7 @@ def read_skill(skill_name: str):
             .all()
         )
 
-        print(f"Found {len(users_with_skill)} users with skill")
+        logger.info(f"スキル '{skill_name}' を持つユーザー: {len(users_with_skill)}人")
 
         # レスポンス用のユーザーリストを作成
         users = []
@@ -74,12 +105,6 @@ def read_skill(skill_name: str):
                 image_data = base64.b64encode(profile.image_data).decode('utf-8')
                 image_data_type = profile.image_data_type
             
-            # デバッグ情報を追加
-            print(f"Processing user: {user.name} (ID: {user.id})")
-            print(f"Department: {profile.department.name if profile and profile.department else '未所属'}")
-            print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-            print(f"Skills: {user_skills}")
-
             users.append(
                 UserResponse(
                     id=user.id,
@@ -96,18 +121,20 @@ def read_skill(skill_name: str):
             )
 
         response = SkillResponse(name=skill_name, users=users)
-        print(f"Sending response with {len(users)} users")
         return response
 
     finally:
         db.close()
 
-# 全スキル取得API
+# 全スキル取得API (非同期キャッシュ)
 @app.get("/skills", response_model=List[SkillMasterBase])
-def read_skills():
+@cached(ttl=3600)  # 1時間キャッシュ
+async def read_skills():
+    logger.info("全スキル取得")
     db = SessionLocal()
     try:
         skills = db.query(SkillMaster).all()
+        logger.info(f"全スキル取得: {len(skills)}件")
         return [SkillMasterBase(name=skill.name) for skill in skills]
     
     finally:
@@ -120,16 +147,16 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
     """
     ふわっと検索（ベクトル検索）でユーザーを検索
     """
-    print(f"検索クエリ: {query}, 取得件数上限: {limit}")
+    logger.info(f"ふわっと検索: クエリ='{query}', 上限={limit}")
     
     try:
-        # Pineconeを使用して類似スキルを検索
-        results = search_similar_skills(query, limit=limit)
-        print(f"Pinecone検索結果: {len(results)}件")
+        # Pineconeを使用して類似スキルを検索 (非同期化)
+        results = await asyncio.to_thread(search_similar_skills, query, limit)
+        logger.info(f"Pinecone検索結果: {len(results)}件")
 
         # 検索結果がない場合
         if not results:
-            print("検索結果なし")
+            logger.info(f"'{query}' の検索結果: 0件")
             return SearchResponse(results=[], total=0)
         
         # 結果をフォーマット
@@ -143,14 +170,14 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                 # スキルマスターからスキル情報を取得
                 skill = db.query(SkillMaster).filter(SkillMaster.skill_id == skill_id).first()
                 if not skill:
-                    print(f"スキルID {skill_id} が見つかりません")
+                    logger.warning(f"スキルID {skill_id} が見つかりません")
                     continue
                 
                 # ユーザーIDがある場合は特定のユーザーの情報を取得
                 if user_id:
                     user = db.query(DBUser).filter(DBUser.id == user_id).first()
                     if not user:
-                        print(f"ユーザーID {user_id} が見つかりません")
+                        logger.warning(f"ユーザーID {user_id} が見つかりません")
                         continue
                         
                     # 部署情報を取得
@@ -190,14 +217,14 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                     # スキルに関連付けられたポストスキルを全て取得
                     post_skills = db.query(PostSkill).filter(PostSkill.skill_id == skill_id).all()
                     if not post_skills:
-                        print(f"スキルID {skill_id} に関連するポストスキルが見つかりません")
+                        logger.warning(f"スキルID {skill_id} に関連するポストスキルが見つかりません")
                         continue
                         
                     # 各ポストスキルからユーザー情報を取得して結果に追加
                     for post_skill in post_skills:
                         user = db.query(DBUser).filter(DBUser.id == post_skill.user_id).first()
                         if not user:
-                            print(f"ユーザーID {post_skill.user_id} が見つかりません")
+                            logger.warning(f"ユーザーID {post_skill.user_id} が見つかりません")
                             continue
                             
                         # 部署情報を取得
@@ -232,45 +259,39 @@ async def fuzzy_search(query: str, limit: int = 10, db: Session = Depends(get_db
                         )
                         search_results.append(search_result)
         
-        print(f"整形後の検索結果: {len(search_results)}件")
+        logger.info(f"整形後の検索結果: {len(search_results)}件")
         return SearchResponse(
             results = search_results,
             total = len(search_results))
     except Exception as e:
-        print(f"検索処理中にエラーが発生: {str(e)}")
+        logger.error(f"検索処理中にエラーが発生: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"検索エラー: {str(e)}")
 
 #部署検索API
 @app.get("/departments/{department_name}", response_model=DepartmentResponse)
-def read_department(department_name: str):
+async def read_department(department_name: str):
     db = SessionLocal()
     try:
-        # 部署を検索
         department = db.query(DBDepartment).filter(DBDepartment.name == department_name).first()
         if not department:
             raise HTTPException(status_code=404, detail="Department not found")
 
-        print(f"Found department: {department.name} (ID: {department.id})")
-
-        # 部署に所属するユーザーを取得
+        # 所属ユーザーを取得
         users_in_department = (
             db.query(DBUser)
             .join(Profile, DBUser.id == Profile.user_id)
-            .join(DBDepartment, Profile.department_id == DBDepartment.id)
             .options(
                 joinedload(DBUser.profile).joinedload(Profile.department),
                 joinedload(DBUser.profile).joinedload(Profile.join_form),
+                joinedload(DBUser.profile).joinedload(Profile.welcome_level),
                 joinedload(DBUser.posted_skills).joinedload(PostSkill.skill)
             )
-            .filter(DBDepartment.id == department.id)
+            .filter(Profile.department_id == department.id)
             .order_by(DBUser.id)  # 一貫した順序で結果を取得
-            .distinct()
             .all()
         )
-
-        print(f"Found {len(users_in_department)} users in department")
 
         # レスポンス用のユーザーリストを作成
         users = []
@@ -278,19 +299,13 @@ def read_department(department_name: str):
             # ユーザーのスキルを取得
             user_skills = [ps.skill.name for ps in user.posted_skills]
             profile = user.profile
-            
+
             # 画像データをBase64エンコード
             image_data = None
             image_data_type = None
             if profile and profile.image_data:
                 image_data = base64.b64encode(profile.image_data).decode('utf-8')
                 image_data_type = profile.image_data_type
-            
-            # デバッグ情報を追加
-            print(f"Processing user: {user.name} (ID: {user.id})")
-            print(f"Department: {department_name}")
-            print(f"Join Form: {profile.join_form.name if profile and profile.join_form else '未設定'}")
-            print(f"Skills: {user_skills}")
 
             users.append(
                 UserResponse(
@@ -308,29 +323,31 @@ def read_department(department_name: str):
             )
 
         response = DepartmentResponse(name=department_name, users=users)
-        print(f"Sending response with {len(users)} users")
         return response
 
     finally:
         db.close()
 
-# 全部署取得API
+# 全部署取得API (非同期キャッシュ)
 @app.get("/departments", response_model=List[DepartmentBase])
-def read_departments():
+@cached(ttl=3600)  # 1時間キャッシュ
+async def read_departments():
+    logger.info("全部署取得")
     db = SessionLocal()
     try:
         departments = db.query(DBDepartment).order_by(DBDepartment.id).all()
+        logger.info(f"全部署取得: {len(departments)}件")
         return [DepartmentBase(name=department.name) for department in departments]
     finally:
         db.close()
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {"message": "Welcome to Chotto API"}
 
 # ユーザー詳細取得API
 @app.get("/users/{user_id}", response_model=UserDetailResponse)
-def get_user_detail(user_id: int, db: Session = Depends(get_db)):
+async def get_user_detail(user_id: int, db: Session = Depends(get_db)):
     user = (
         db.query(DBUser)
         .join(Profile, DBUser.id == Profile.user_id)
@@ -354,10 +371,9 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
     # 画像データをBase64エンコード
     image_data = None
     image_data_type = None
-    if user.profile and user.profile.image_data:
-        image_data = base64.b64encode(user.profile.image_data).decode('utf-8')
-        image_data_type = user.profile.image_data_type
-                        
+    if profile and profile.image_data:
+        image_data = base64.b64encode(profile.image_data).decode('utf-8')
+        image_data_type = profile.image_data_type
 
     # 経験・実績のダミーデータ
     experiences = [
@@ -386,9 +402,29 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else None
     )
 
+# 画像取得用の専用エンドポイント（代替手段として残す）
+@app.get("/users/{user_id}/image")
+async def get_user_image(user_id: int, db: Session = Depends(get_db)):
+    """
+    個別に画像データのみを取得するためのエンドポイント。
+    メインAPIで画像を取得できるようになったが、軽量化のために別途取得したい場合に使用。
+    """
+    user = db.query(DBUser).join(Profile, DBUser.id == Profile.user_id).filter(DBUser.id == user_id).first()
+    
+    if not user or not user.profile or not user.profile.image_data:
+        raise HTTPException(status_code=404, detail="User image not found")
+    
+    image_data = base64.b64encode(user.profile.image_data).decode('utf-8')
+    image_data_type = user.profile.image_data_type
+    
+    return {
+        "image_data": image_data,
+        "image_data_type": image_data_type
+    }
+
 # ブックマーク追加API
 @app.post("/bookmarks/{user_id}", response_model=BookmarkResponse)
-def create_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+async def create_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
     # すでにブックマークされているかチェック
     existing_bookmark = db.query(Bookmark).filter(
         Bookmark.bookmarking_user_id == user_id,
@@ -411,7 +447,7 @@ def create_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends
 
 # ブックマーク削除API
 @app.delete("/bookmarks/{user_id}", response_model=BookmarkResponse)
-def delete_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+async def delete_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
     bookmark = db.query(Bookmark).filter(
         Bookmark.bookmarking_user_id == user_id,
         Bookmark.bookmarked_user_id == bookmarked_user_id
@@ -427,7 +463,7 @@ def delete_bookmark(user_id: int, bookmarked_user_id: int, db: Session = Depends
 
 # ブックマーク一覧取得API
 @app.get("/bookmarks/{user_id}", response_model=BookmarkListResponse)
-def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
+async def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
     bookmarks = (
         db.query(Bookmark)
         .filter(Bookmark.bookmarking_user_id == user_id)
@@ -446,6 +482,13 @@ def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
         profile = user.profile
         user_skills = [ps.skill.name for ps in user.posted_skills]
 
+        # 画像データをBase64エンコード
+        image_data = None
+        image_data_type = None
+        if profile and profile.image_data:
+            image_data = base64.b64encode(profile.image_data).decode('utf-8')
+            image_data_type = profile.image_data_type
+
         Bookmark_list.append(
             BookmarkResponse(
                 id=bookmark.id,
@@ -459,14 +502,16 @@ def get_bookmarks(user_id: int, db: Session = Depends(get_db)):
                 description=profile.pr if profile else "",
                 joinForm=profile.join_form.name if profile and profile.join_form else "未設定",
                 welcome_level=profile.welcome_level.level_name if profile and profile.welcome_level else "未設定",
-                created_at=bookmark.created_at
+                created_at=bookmark.created_at,
+                image_data=image_data,
+                image_data_type=image_data_type
             ))
 
     return BookmarkListResponse(bookmarks=Bookmark_list, total=len(Bookmark_list))
 
 # ブックマーク状態確認API
 @app.get("/bookmarks/{user_id}/{bookmarked_user_id}/status")
-def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
+async def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = Depends(get_db)):
     bookmark = db.query(Bookmark).filter(
         Bookmark.bookmarking_user_id == user_id,
         Bookmark.bookmarked_user_id == bookmarked_user_id
@@ -476,7 +521,7 @@ def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = D
 
 # ログインAPI
 @app.post("/auth/login", response_model=LoginResponse)
-def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """ユーザー認証を行い、認証情報を返す"""
     user = db.query(DBUser).filter(DBUser.email == login_data.email).first()
     
