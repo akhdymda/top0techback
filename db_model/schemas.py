@@ -278,3 +278,15 @@ class SearchResult(BaseModel):
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     total: int 
+
+# ログインスキーマの追加
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class LoginResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    success: bool
+    message: str

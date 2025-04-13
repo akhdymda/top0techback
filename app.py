@@ -5,7 +5,7 @@ from typing import List
 from db_connection.connect_MySQL import SessionLocal, get_db
 from db_model.tables import SkillMaster, User as DBUser, PostSkill, Department as DBDepartment, Profile, Bookmark
 from sqlalchemy.orm import joinedload, Session
-from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkListResponse
+from db_model.schemas import SkillMasterBase, SkillResponse, SearchResponse, UserResponse, UserDetailResponse, SearchResult, DepartmentResponse, DepartmentBase, BookmarkResponse, BookmarkListResponse, LoginRequest, LoginResponse
 import base64
 
 app = FastAPI()
@@ -18,6 +18,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# パスワードを検証する関数（NextOAuthとの連携用）
+def verify_password(plain_password, hashed_password):
+    # 平文パスワードをバイト文字列に変換
+    password_bytes = plain_password.encode('utf-8')
+    # ハッシュ済みパスワードをバイト文字列に変換
+    hashed_bytes = hashed_password.encode('utf-8')
+    # bcryptでパスワードを検証
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 # スキル検索API
 @app.get("/skills/{skill_name}", response_model=SkillResponse)
@@ -464,5 +473,27 @@ def check_bookmark_status(user_id: int, bookmarked_user_id: int, db: Session = D
     ).first()
     
     return {"is_bookmarked": bookmark is not None}
+
+# ログインAPI
+@app.post("/auth/login", response_model=LoginResponse)
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+    """ユーザー認証を行い、認証情報を返す"""
+    user = db.query(DBUser).filter(DBUser.email == login_data.email).first()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが正しくありません")
+    
+    # パスワードの検証
+    if not verify_password(login_data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが正しくありません")
+    
+    # 認証成功
+    return LoginResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        success=True,
+        message="認証に成功しました"
+    )
     
     
